@@ -16,13 +16,14 @@ import {
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { Home, Download, Loader2, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Home, Download, Loader2, Sparkles, AlertCircle, CheckCircle2, Wand2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // Available models
 const MODELS = [
-  { value: "google/imagen-4", label: "Google Imagen 4", description: "High-quality photorealistic images" },
-  { value: "banana/nano-flash", label: "Nano Banana Flash", description: "Ultra-fast generation" },
+  { value: "fal-ai/imagen4/preview", label: "Google Imagen 4", description: "High-quality photorealistic images" },
+  { value: "fal-ai/nano-banana", label: "Nano Banana Flash", description: "Ultra-fast generation" },
 ];
 
 // Image dimension presets
@@ -38,6 +39,7 @@ const DIMENSION_PRESETS = [
 const TEMP_USER_ID = "user-1";
 
 export default function FreeImageGenerationPage() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
@@ -49,7 +51,7 @@ export default function FreeImageGenerationPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [seed, setSeed] = useState<number | undefined>(undefined);
   const [guidanceScale, setGuidanceScale] = useState<number | undefined>(undefined);
-  
+
   const [currentGenerationId, setCurrentGenerationId] = useState<Id<"imageGenerations"> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export default function FreeImageGenerationPage() {
   const downloadAndStoreAction = useAction(api.generatorActions.downloadAndStoreFile);
   const createGeneration = useMutation(api.mutations.createImageGeneration);
   const updateGenerationStatus = useMutation(api.mutations.updateImageGenerationStatus);
-  
+
   // Get current generation status
   const currentGeneration = useQuery(
     api.queries.getImageGenerationById,
@@ -76,7 +78,12 @@ export default function FreeImageGenerationPage() {
   // Polling effect for async generations
   useEffect(() => {
     if (!currentGenerationId || !currentGeneration) return;
-    if (currentGeneration.status !== "processing" && currentGeneration.status !== "pending") return;
+    // Poll if status is processing/pending OR if completed but no files yet
+    const shouldPoll =
+      (currentGeneration.status === "processing" || currentGeneration.status === "pending") ||
+      (currentGeneration.status === "completed" && currentGeneration.generatedFileIds.length === 0);
+
+    if (!shouldPoll) return;
 
     const pollInterval = setInterval(async () => {
       if (!currentGeneration.falRequestId || !currentGenerationId) return;
@@ -87,9 +94,12 @@ export default function FreeImageGenerationPage() {
           model: currentGeneration.model,
         });
 
+        console.log("Poll status result:", status);
+
         if (status.isCompleted && status.images.length > 0) {
           // Generation completed, download and store files
-          await handleCompletedGeneration(status.images);
+          console.log("Polling found images:", status.images);
+          await handleCompletedGeneration(status.images, currentGenerationId);
         } else if (status.isFailed) {
           await updateGenerationStatus({
             id: currentGenerationId,
@@ -99,6 +109,7 @@ export default function FreeImageGenerationPage() {
           setIsGenerating(false);
           setGenerationError(status.error || "Generation failed");
         }
+        // If still processing, continue polling
       } catch (error: any) {
         console.error("Polling error:", error);
         setGenerationError(error.message);
@@ -109,38 +120,61 @@ export default function FreeImageGenerationPage() {
     return () => clearInterval(pollInterval);
   }, [currentGenerationId, currentGeneration, pollStatusAction, updateGenerationStatus]);
 
-  const handleCompletedGeneration = async (imageUrls: string[]) => {
-    if (!currentGenerationId) return;
+  const handleCompletedGeneration = async (imageUrls: string[], generationId: Id<"imageGenerations">) => {
+    if (!generationId) {
+      console.error("❌ handleCompletedGeneration called but no generationId provided");
+      return;
+    }
+
+    console.log("🚀 handleCompletedGeneration called with", imageUrls.length, "image(s):", imageUrls);
+    console.log("🚀 Using generationId:", generationId);
+
+    if (!imageUrls || imageUrls.length === 0) {
+      console.error("❌ No image URLs provided to handleCompletedGeneration");
+      return;
+    }
 
     try {
       const fileIds: Id<"generatedFiles">[] = [];
 
       // Download and store each image
-      for (const imageUrl of imageUrls) {
-        const stored = await downloadAndStoreAction({
-          url: imageUrl,
-          generationId: currentGenerationId,
-          generationType: "image",
-          width: useCustomDimensions ? customWidth : DIMENSION_PRESETS[parseInt(dimensionPreset)].width,
-          height: useCustomDimensions ? customHeight : DIMENSION_PRESETS[parseInt(dimensionPreset)].height,
-        });
-        fileIds.push(stored.fileId);
+      for (let i = 0; i < imageUrls.length; i++) {
+        const imageUrl = imageUrls[i];
+        console.log(`📥 Processing image ${i + 1}/${imageUrls.length}:`, imageUrl);
+
+        try {
+          const stored = await downloadAndStoreAction({
+            url: imageUrl,
+            generationId: generationId,
+            generationType: "image",
+            width: useCustomDimensions ? customWidth : DIMENSION_PRESETS[parseInt(dimensionPreset)].width,
+            height: useCustomDimensions ? customHeight : DIMENSION_PRESETS[parseInt(dimensionPreset)].height,
+          });
+          console.log(`✅ Stored image ${i + 1}, fileId:`, stored.fileId);
+          fileIds.push(stored.fileId);
+        } catch (fileError: any) {
+          console.error(`❌ Error storing image ${i + 1}:`, fileError);
+          throw fileError; // Re-throw to handle in outer catch
+        }
       }
+
+      console.log(`✅ Successfully stored ${fileIds.length} file(s)`);
 
       // Update generation status
       await updateGenerationStatus({
-        id: currentGenerationId,
+        id: generationId,
         status: "completed",
         generatedFileIds: fileIds,
         completedAt: Date.now(),
       });
 
+      console.log("✅ Generation status updated to completed");
       setIsGenerating(false);
       setGenerationError(null);
     } catch (error: any) {
-      console.error("Error storing files:", error);
+      console.error("❌ Error storing files:", error);
       await updateGenerationStatus({
-        id: currentGenerationId,
+        id: generationId,
         status: "failed",
         errorMessage: error.message,
       });
@@ -198,11 +232,27 @@ export default function FreeImageGenerationPage() {
         falRequestId: result.requestId,
       });
 
-      // If completed synchronously, handle immediately
-      if (result.isCompleted && result.images.length > 0) {
-        await handleCompletedGeneration(result.images);
+      // Set currentGenerationId BEFORE calling handleCompletedGeneration
+      setCurrentGenerationId(generationId);
+
+      // If completed synchronously with images, handle immediately
+      console.log("Generation result:", {
+        isCompleted: result.isCompleted,
+        imagesCount: result.images?.length || 0,
+        images: result.images,
+        requestId: result.requestId,
+        generationId: generationId
+      });
+
+      if (result.isCompleted && result.images && result.images.length > 0) {
+        console.log("✓ Synchronous completion with images, calling handleCompletedGeneration with generationId:", generationId);
+        await handleCompletedGeneration(result.images, generationId);
       } else if (!result.isCompleted) {
         // Will be handled by polling effect
+        console.log("→ Async generation, will poll for status");
+      } else {
+        // Completed but no images - might need to poll once
+        console.warn("⚠ Completed but no images in initial response (images:", result.images, "), starting polling");
       }
     } catch (error: any) {
       console.error("Generation error:", error);
@@ -533,7 +583,7 @@ export default function FreeImageGenerationPage() {
                           alt="Generated"
                           className="w-full h-auto"
                         />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center gap-2 justify-center opacity-0 group-hover:opacity-100">
                           <Button
                             variant="secondary"
                             size="sm"
@@ -543,6 +593,16 @@ export default function FreeImageGenerationPage() {
                           >
                             <Download className="mr-2 h-4 w-4" />
                             Download
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => {
+                              router.push(`/generator/admin/image-editor?fileId=${file._id}&imageUrl=${encodeURIComponent(file.fileUrl)}`);
+                            }}
+                          >
+                            <Wand2 className="mr-2 h-4 w-4" />
+                            Edit
                           </Button>
                         </div>
                         <div className="p-2 bg-background/80 backdrop-blur-sm">

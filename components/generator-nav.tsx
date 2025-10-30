@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Image, Package, Menu, Video, FolderOpen } from "lucide-react";
+import { LayoutDashboard, Image, Package, Menu, Video, FolderOpen, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
     { name: "Dashboard", href: "/generator/admin", icon: LayoutDashboard },
     { name: "Free Image", href: "/generator/admin/free-image", icon: Image },
+    { name: "Image Editor", href: "/generator/admin/image-editor", icon: Wand2 },
     { name: "Product Image", href: "/generator/admin/product-image", icon: Package },
     { name: "Menu Generator", href: "/generator/admin/menu", icon: Menu },
     { name: "Video Generator", href: "/generator/admin/video", icon: Video },

@@ -9,6 +9,7 @@
  */
 
 import type * as files from "../files.js";
+import type * as generatorActions from "../generatorActions.js";
 import type * as mutations from "../mutations.js";
 import type * as queries from "../queries.js";
 import type * as seed from "../seed.js";
@@ -29,6 +30,7 @@ import type {
  */
 declare const fullApi: ApiFromModules<{
   files: typeof files;
+  generatorActions: typeof generatorActions;
   mutations: typeof mutations;
   queries: typeof queries;
   seed: typeof seed;
