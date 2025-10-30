@@ -251,7 +251,8 @@ export const createTemplate = mutation({
     layoutType: v.union(
       v.literal("grid"),
       v.literal("list"),
-      v.literal("featured")
+      v.literal("featured"),
+      v.literal("columns")
     ),
     columns: v.optional(v.number()),
     showPrices: v.boolean(),
@@ -286,7 +287,7 @@ export const updateTemplate = mutation({
     name: v.optional(v.string()),
     slug: v.optional(v.string()),
     layoutType: v.optional(
-      v.union(v.literal("grid"), v.literal("list"), v.literal("featured"))
+      v.union(v.literal("grid"), v.literal("list"), v.literal("featured"), v.literal("columns"))
     ),
     columns: v.optional(v.number()),
     showPrices: v.optional(v.boolean()),

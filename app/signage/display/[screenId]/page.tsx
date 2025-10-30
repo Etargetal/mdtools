@@ -234,6 +234,14 @@ function DynamicDisplay({
           branding={branding}
         />
       );
+    case "columns":
+      return (
+        <ColumnsLayout
+          products={products}
+          template={template}
+          branding={branding}
+        />
+      );
     default:
       return <GridLayout products={products} template={template} branding={branding} />;
   }
@@ -383,6 +391,124 @@ function FeaturedLayout({
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ColumnsLayout({
+  products,
+  template,
+  branding,
+}: {
+  products: any[];
+  template: any;
+  branding: any;
+}) {
+  const config = (template.config as any) || {};
+  const numberOfColumns = config.numberOfColumns || 3;
+  const showHeader = config.showHeader || false;
+  const headerLogo = config.headerLogo;
+  const columnColors = config.columnColors || ["#FF8C00", "#FFD700"];
+  const showSeparators = config.showColumnSeparators !== false;
+  const separatorColor = config.separatorColor || "#000000";
+  const columnPadding = config.columnPadding || 16;
+  const textColor = config.textColor || "#000000";
+  const priceColor = config.priceColor || "#000000";
+  const imagePosition = config.imagePosition || "bottom";
+
+  // Get logo URL if available
+  const looksLikeStorageId = headerLogo && /^k[a-zA-Z0-9]+$/.test(headerLogo);
+  const storageUrl = useQuery(
+    api.files.getStorageUrl,
+    looksLikeStorageId ? ({ storageId: headerLogo as Id<"_storage"> } as any) : "skip"
+  );
+  const logoUrl = looksLikeStorageId ? storageUrl : headerLogo;
+
+  // Distribute products across columns (vertically)
+  // Each column gets products in round-robin fashion
+  const columns: any[][] = Array.from({ length: numberOfColumns }, () => []);
+  products.forEach((product, index) => {
+    columns[index % numberOfColumns].push(product);
+  });
+
+  return (
+    <div className="h-full w-full flex flex-col">
+      {/* Header with Logo */}
+      {showHeader && logoUrl && (
+        <div className="flex-shrink-0 flex items-center justify-center p-8" style={{ backgroundColor: branding.primaryColor }}>
+          <img src={logoUrl} alt="Logo" className="max-h-32 object-contain" />
+        </div>
+      )}
+
+      {/* Columns Container */}
+      <div className="flex-1 flex" style={{ height: showHeader ? "calc(100% - 200px)" : "100%" }}>
+        {columns.map((columnProducts, columnIndex) => {
+          const columnColor = columnColors[columnIndex % columnColors.length] || columnColors[0];
+          
+          return (
+            <div
+              key={columnIndex}
+              className="flex-1 flex flex-col"
+              style={{
+                backgroundColor: columnColor,
+                borderRight: showSeparators && columnIndex < numberOfColumns - 1
+                  ? `2px solid ${separatorColor}`
+                  : "none",
+              }}
+            >
+              {columnProducts.map((product) => (
+                <div
+                  key={product._id}
+                  className="flex-1 flex flex-col"
+                  style={{ padding: `${columnPadding}px` }}
+                >
+                  {/* Image at top if configured */}
+                  {template.showImages && imagePosition === "top" && product.image && (
+                    <div className="flex-1 relative mb-4" style={{ minHeight: "200px" }}>
+                      <ProductImage imageId={product.image} alt={product.name} />
+                    </div>
+                  )}
+
+                  {/* Product Title */}
+                  <h3
+                    className="text-3xl font-bold mb-2"
+                    style={{ color: textColor }}
+                  >
+                    {product.name}
+                  </h3>
+
+                  {/* Description */}
+                  {product.description && (
+                    <p
+                      className="text-lg mb-4"
+                      style={{ color: textColor }}
+                    >
+                      {product.description}
+                    </p>
+                  )}
+
+                  {/* Price */}
+                  {template.showPrices && (
+                    <p
+                      className="text-2xl font-bold mb-4"
+                      style={{ color: priceColor }}
+                    >
+                      {product.price},-
+                    </p>
+                  )}
+
+                  {/* Image at bottom if configured */}
+                  {template.showImages && imagePosition === "bottom" && product.image && (
+                    <div className="flex-1 relative mt-auto" style={{ minHeight: "200px" }}>
+                      <ProductImage imageId={product.image} alt={product.name} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

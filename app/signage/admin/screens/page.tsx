@@ -144,16 +144,16 @@ function ScreenManagement({
       dynamicConfig:
         formData.mode === "dynamic"
           ? {
-              productIds: formData.productIds,
-              templateId: formData.templateId as Id<"templates">,
-              backgroundImage: formData.backgroundImage || undefined,
-            }
+            productIds: formData.productIds,
+            templateId: formData.templateId as Id<"templates">,
+            backgroundImage: formData.backgroundImage || undefined,
+          }
           : undefined,
       staticConfig:
         formData.mode === "static"
           ? {
-              imageUrl: formData.imageUrl,
-            }
+            imageUrl: formData.imageUrl,
+          }
           : undefined,
       layoutConfig: {
         orientation: formData.orientation,
@@ -196,16 +196,16 @@ function ScreenManagement({
       dynamicConfig:
         formData.mode === "dynamic"
           ? {
-              productIds: formData.productIds,
-              templateId: formData.templateId as Id<"templates">,
-              backgroundImage: formData.backgroundImage || undefined,
-            }
+            productIds: formData.productIds,
+            templateId: formData.templateId as Id<"templates">,
+            backgroundImage: formData.backgroundImage || undefined,
+          }
           : undefined,
       staticConfig:
         formData.mode === "static"
           ? {
-              imageUrl: formData.imageUrl,
-            }
+            imageUrl: formData.imageUrl,
+          }
           : undefined,
       layoutConfig: {
         orientation: formData.orientation,
@@ -265,9 +265,8 @@ function ScreenManagement({
     };
     return (
       <span
-        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-          colors[status as keyof typeof colors]
-        }`}
+        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${colors[status as keyof typeof colors]
+          }`}
       >
         {status}
       </span>

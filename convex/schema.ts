@@ -41,7 +41,8 @@ export default defineSchema({
     layoutType: v.union(
       v.literal("grid"),
       v.literal("list"),
-      v.literal("featured")
+      v.literal("featured"),
+      v.literal("columns")
     ),
     columns: v.optional(v.number()),
     showPrices: v.boolean(),
