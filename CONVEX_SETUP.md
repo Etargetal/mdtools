@@ -40,12 +40,33 @@ npx convex run seed:seedDefaultTemplates
 
 ## Environment Variables
 
+### Next.js Environment Variables (`.env.local`)
+
 Make sure `.env.local` contains:
 ```
 NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 ```
 
 This will be automatically generated when you run `npx convex dev`.
+
+### Convex Environment Variables (for backend actions)
+
+For Convex backend code (actions, mutations, queries), environment variables need to be set using Convex's CLI or dashboard:
+
+**Using Convex CLI:**
+```bash
+npx convex env set FAL_API_KEY your_fal_api_key_here
+```
+
+**Using Convex Dashboard:**
+1. Go to your Convex dashboard
+2. Navigate to Settings → Environment Variables
+3. Add `FAL_API_KEY` with your fal.ai API key
+
+**Required for Generator Module:**
+- `FAL_API_KEY` - Your fal.ai API key for AI image/video generation
+
+Note: These environment variables are only accessible in Convex backend code (actions), not in Next.js client/server code.
 
 ## Project Structure
 

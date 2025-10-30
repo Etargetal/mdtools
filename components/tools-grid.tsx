@@ -1,4 +1,4 @@
-import { BarChart3, Rocket, Monitor } from "lucide-react"
+import { BarChart3, Rocket, Monitor, Sparkles } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -12,11 +12,11 @@ const tools = [
     features: ["Sales Analytics", "Statistics Overview", "Real-time Data"],
   },
   {
-    title: "Product Launch",
-    description: "Generate stunning product images and manage your product launch campaigns effortlessly.",
-    icon: Rocket,
-    href: "/product-launch",
-    features: ["AI Image Generation", "Free Tier Access", "Batch Processing"],
+    title: "Generator",
+    description: "Generate stunning images and videos using AI models. Create product images, menus for signage, and videos with ease.",
+    icon: Sparkles,
+    href: "/generator/admin",
+    features: ["AI Image Generation", "Free Tier Access", "Video Generation"],
   },
   {
     title: "Signage",

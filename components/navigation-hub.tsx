@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { BarChart3, Rocket, Monitor, ChevronDown } from "lucide-react"
+import { BarChart3, Monitor, ChevronDown, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
@@ -15,11 +15,11 @@ const navigationItems = [
     ],
   },
   {
-    title: "Product Launch",
-    icon: Rocket,
+    title: "Generator",
+    icon: Sparkles,
+    href: "/generator/admin",
     submenus: [
-      { label: "AI Image Generator", href: "/product-launch/ai-generator" },
-      { label: "Free Tier", href: "/product-launch/free-tier" },
+      { label: "Admin Dashboard", href: "/generator/admin" },
     ],
   },
   {
@@ -49,7 +49,7 @@ export function NavigationHub() {
           return (
             <div key={item.title} className="relative">
               {item.href ? (
-                // Direct link for Signage
+                // Direct link for Generator and Signage
                 <Link href={item.href}>
                   <Button
                     className="group h-auto w-full flex-col gap-4 border border-border/50 bg-card/50 p-8 backdrop-blur transition-all hover:border-white/20 hover:bg-card/70 hover:shadow-lg hover:shadow-white/5"

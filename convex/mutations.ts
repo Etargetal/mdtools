@@ -383,3 +383,308 @@ export const deleteStaticAsset = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+// ========== Generator Module Mutations ==========
+
+// Create image generation
+export const createImageGeneration = mutation({
+  args: {
+    userId: v.string(),
+    type: v.union(v.literal("free"), v.literal("product"), v.literal("menu")),
+    model: v.string(),
+    prompt: v.string(),
+    negativePrompt: v.optional(v.string()),
+    style: v.optional(v.string()),
+    styleImageId: v.optional(v.id("generatedFiles")),
+    width: v.number(),
+    height: v.number(),
+    numImages: v.number(),
+    seed: v.optional(v.number()),
+    guidanceScale: v.optional(v.number()),
+    menuConfig: v.optional(
+      v.object({
+        orientation: v.union(v.literal("portrait"), v.literal("landscape")),
+        pricePosition: v.union(
+          v.literal("top"),
+          v.literal("bottom"),
+          v.literal("right"),
+          v.literal("left")
+        ),
+        useGeneratedImages: v.boolean(),
+        useProvidedImages: v.boolean(),
+        backgroundSource: v.union(
+          v.literal("generated"),
+          v.literal("provided"),
+          v.literal("none")
+        ),
+        backgroundImageId: v.optional(v.id("generatedFiles")),
+        products: v.array(
+          v.object({
+            productId: v.optional(v.id("products")),
+            name: v.string(),
+            price: v.number(),
+            imageId: v.optional(v.id("generatedFiles")),
+            order: v.number(),
+          })
+        ),
+      })
+    ),
+    productConfig: v.optional(
+      v.object({
+        productName: v.string(),
+        productDescription: v.optional(v.string()),
+        styleReferenceId: v.optional(v.id("generatedFiles")),
+        styleStrength: v.optional(v.number()),
+        backgroundType: v.union(
+          v.literal("transparent"),
+          v.literal("generated"),
+          v.literal("provided")
+        ),
+        backgroundImageId: v.optional(v.id("generatedFiles")),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    return await ctx.db.insert("imageGenerations", {
+      ...args,
+      status: "pending",
+      generatedFileIds: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+// Update image generation status
+export const updateImageGenerationStatus = mutation({
+  args: {
+    id: v.id("imageGenerations"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    falRequestId: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    generatedFileIds: v.optional(v.array(v.id("generatedFiles"))),
+    completedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, {
+      ...updates,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+// Create video generation
+export const createVideoGeneration = mutation({
+  args: {
+    userId: v.string(),
+    type: v.union(
+      v.literal("image-to-video"),
+      v.literal("video-remix"),
+      v.literal("text-to-video"),
+      v.literal("video-to-video")
+    ),
+    model: v.string(),
+    prompt: v.string(),
+    negativePrompt: v.optional(v.string()),
+    sourceImageId: v.optional(v.id("generatedFiles")),
+    motionStrength: v.optional(v.number()),
+    duration: v.optional(v.number()),
+    sourceVideoId: v.optional(v.id("generatedFiles")),
+    remixStyle: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    videoStyleId: v.optional(v.id("generatedFiles")),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    return await ctx.db.insert("videoGenerations", {
+      ...args,
+      status: "pending",
+      generatedFileIds: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+// Update video generation status
+export const updateVideoGenerationStatus = mutation({
+  args: {
+    id: v.id("videoGenerations"),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    falRequestId: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    generatedFileIds: v.optional(v.array(v.id("generatedFiles"))),
+    completedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, {
+      ...updates,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+// Create generated file record
+export const createGeneratedFile = mutation({
+  args: {
+    storageId: v.id("_storage"),
+    fileUrl: v.string(),
+    fileType: v.union(v.literal("image"), v.literal("video")),
+    mimeType: v.string(),
+    fileSize: v.number(),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    duration: v.optional(v.number()),
+    generationId: v.union(
+      v.id("imageGenerations"),
+      v.id("videoGenerations")
+    ),
+    generationType: v.union(v.literal("image"), v.literal("video")),
+    isOriginal: v.boolean(),
+    parentFileId: v.optional(v.id("generatedFiles")),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("generatedFiles", {
+      ...args,
+      editHistory: [],
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// Update generated file with edit history
+export const updateGeneratedFile = mutation({
+  args: {
+    id: v.id("generatedFiles"),
+    editHistory: v.optional(
+      v.array(
+        v.object({
+          editType: v.string(),
+          parameters: v.any(),
+          timestamp: v.number(),
+        })
+      )
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, updates);
+  },
+});
+
+// Create edit history entry
+export const createEditHistory = mutation({
+  args: {
+    userId: v.string(),
+    fileId: v.id("generatedFiles"),
+    editType: v.union(
+      v.literal("crop"),
+      v.literal("resize"),
+      v.literal("filter"),
+      v.literal("style-transfer"),
+      v.literal("color-adjust"),
+      v.literal("text-overlay"),
+      v.literal("remove-background"),
+      v.literal("upscale")
+    ),
+    parameters: v.any(),
+    resultFileId: v.id("generatedFiles"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("editHistory", {
+      ...args,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+// Create user collection
+export const createCollection = mutation({
+  args: {
+    userId: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    fileIds: v.array(v.id("generatedFiles")),
+    isPublic: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    return await ctx.db.insert("userCollections", {
+      ...args,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+// Update user collection
+export const updateCollection = mutation({
+  args: {
+    id: v.id("userCollections"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    fileIds: v.optional(v.array(v.id("generatedFiles"))),
+    isPublic: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, {
+      ...updates,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+// Delete user collection
+export const deleteCollection = mutation({
+  args: {
+    id: v.id("userCollections"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+  },
+});
+
+// Delete generated file
+export const deleteGeneratedFile = mutation({
+  args: {
+    id: v.id("generatedFiles"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+  },
+});
+
+// Delete image generation
+export const deleteImageGeneration = mutation({
+  args: {
+    id: v.id("imageGenerations"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+  },
+});
+
+// Delete video generation
+export const deleteVideoGeneration = mutation({
+  args: {
+    id: v.id("videoGenerations"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
+  },
+});
