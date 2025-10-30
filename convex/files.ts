@@ -9,6 +9,16 @@ export const generateUploadUrl = action({
   },
 });
 
+// Upload file and get URL
+export const uploadFileAndGetUrl = action({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.storage.getUrl(args.storageId);
+  },
+});
+
 // Get storage URL for a file
 export const getStorageUrl = query({
   args: { storageId: v.id("_storage") },

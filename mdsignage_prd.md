@@ -240,18 +240,18 @@ Currently, updating digital signage content requires physical presence or comple
 #### 1.4 Template Management (Dynamic Mode)
 
 **List View**
-- [ ] All templates with preview
-- [ ] Mark default template
+- [x] All templates with preview
+- [x] Mark default template
 - [ ] Clone template functionality
 
 **Create/Edit Template**
-- [ ] Template name and slug
-- [ ] Layout type selector (grid, list, featured)
-- [ ] Column count (2-4 for grid layout)
-- [ ] Toggle: show prices, show images
+- [x] Template name and slug
+- [x] Layout type selector (grid, list, featured)
+- [x] Column count (2-4 for grid layout)
+- [x] Toggle: show prices, show images
 - [ ] Additional layout-specific settings
 - [ ] Live preview panel
-- [ ] Set as default template
+- [x] Set as default template
 
 **Default Templates Included**
 - [ ] Grid 2 Columns (default)
@@ -263,60 +263,60 @@ Currently, updating digital signage content requires physical presence or comple
 #### 1.5 Screen Management
 
 **List View**
-- [ ] All screens grouped by location
-- [ ] Display mode indicator (Dynamic/Static)
-- [ ] Status indicators (Active/Inactive/Maintenance)
-- [ ] Quick actions (edit, preview, duplicate)
+- [x] All screens grouped by location
+- [x] Display mode indicator (Dynamic/Static)
+- [x] Status indicators (Active/Inactive/Maintenance)
+- [x] Quick actions (edit, preview, duplicate)
 
 **Create/Edit Screen**
-- [ ] Screen ID (URL slug, required, unique)
-- [ ] Friendly name
-- [ ] Location assignment (required)
-- [ ] **Display Mode Selection**
-  - [ ] Radio buttons: Dynamic or Static
+- [x] Screen ID (URL slug, required, unique)
+- [x] Friendly name
+- [x] Location assignment (required)
+- [x] **Display Mode Selection**
+  - [x] Radio buttons: Dynamic or Static
   
-- [ ] **Dynamic Mode Configuration** (shown when Dynamic selected)
-  - [ ] Product selector (multi-select with search)
-  - [ ] Template selector (dropdown)
-  - [ ] Optional background image upload (overrides location default)
+- [x] **Dynamic Mode Configuration** (shown when Dynamic selected)
+  - [x] Product selector (multi-select with search)
+  - [x] Template selector (dropdown)
+  - [x] Optional background image upload (overrides location default)
   
-- [ ] **Static Mode Configuration** (shown when Static selected)
-  - [ ] Image upload/selector
-  - [ ] Image preview
-  - [ ] Replace image option
+- [x] **Static Mode Configuration** (shown when Static selected)
+  - [x] Image upload/selector
+  - [x] Image preview
+  - [x] Replace image option
 
-- [ ] **General Settings**
-  - [ ] Orientation (landscape/portrait)
-  - [ ] Refresh interval (seconds, default: 300)
-  - [ ] Status toggle
+- [x] **General Settings**
+  - [x] Orientation (landscape/portrait)
+  - [x] Refresh interval (seconds, default: 300)
+  - [x] Status toggle
 
 **Screen Preview**
-- [ ] Live preview of screen as it appears on display
+- [x] Live preview of screen as it appears on display
 - [ ] Refresh button to reload preview
-- [ ] Open preview in new window/tab
+- [x] Open preview in new window/tab
 - [ ] Toggle between modes in preview
 
 #### 1.6 Static Content Management (Static Mode)
 
 **Gallery View**
-- [ ] Grid of all uploaded static images
-- [ ] Image previews
+- [x] Grid of all uploaded static images
+- [x] Image previews
 - [ ] Filter by upload date
 - [ ] Search by name
 
 **Upload**
-- [ ] Drag-and-drop upload area
-- [ ] Single file upload
-- [ ] Supported formats: JPG, PNG, WebP
-- [ ] File size limit: 10MB max
-- [ ] Progress indicator
-- [ ] Upload validation and error messages
+- [x] Drag-and-drop upload area
+- [x] Single file upload
+- [x] Supported formats: JPG, PNG, WebP
+- [x] File size limit: 10MB max
+- [x] Progress indicator
+- [x] Upload validation and error messages
 
 **Asset Details**
-- [ ] Full-size image preview
-- [ ] Metadata (size, dimensions, upload date)
-- [ ] Copy URL button
-- [ ] Delete confirmation
+- [x] Full-size image preview
+- [x] Metadata (size, dimensions, upload date)
+- [x] Copy URL button
+- [x] Delete confirmation
 - [ ] Usage indicator (which screens use this image)
 
 ---
@@ -324,64 +324,64 @@ Currently, updating digital signage content requires physical presence or comple
 ### 2. Display Endpoint (`/signage/display/[screenId]`)
 
 #### 2.1 Screen Rendering
-- [ ] Fetch screen config from Convex by `screenId`
-- [ ] Handle 404 for invalid screen IDs
-- [ ] Apply location branding (colors, logo, fonts, background)
-- [ ] Determine display mode (dynamic or static)
-- [ ] Auto-scale to 1080p (or configured resolution)
-- [ ] Fullscreen-optimized layout (no scroll, no controls)
+- [x] Fetch screen config from Convex by `screenId`
+- [x] Handle 404 for invalid screen IDs
+- [x] Apply location branding (colors, logo, fonts, background)
+- [x] Determine display mode (dynamic or static)
+- [x] Auto-scale to 1080p (or configured resolution)
+- [x] Fullscreen-optimized layout (no scroll, no controls)
 
 #### 2.2 Dynamic Mode Rendering
 
 **Template-Based Layout**
-- [ ] **Grid Layout**
-  - [ ] Responsive grid (2-4 columns based on template)
-  - [ ] Product cards with image (if available), name, price
-  - [ ] Cards respect location branding colors
-  - [ ] Background image from location or screen override
+- [x] **Grid Layout**
+  - [x] Responsive grid (2-4 columns based on template)
+  - [x] Product cards with image (if available), name, price
+  - [x] Cards respect location branding colors
+  - [x] Background image from location or screen override
   
-- [ ] **List Layout**
-  - [ ] Vertical list with larger product images
-  - [ ] Description text support (if available)
-  - [ ] Spacing and typography based on location branding
+- [x] **List Layout**
+  - [x] Vertical list with larger product images
+  - [x] Description text support (if available)
+  - [x] Spacing and typography based on location branding
   
-- [ ] **Featured Layout**
-  - [ ] Hero-style large product displays
-  - [ ] Rotating spotlight items
-  - [ ] Background image support
+- [x] **Featured Layout**
+  - [x] Hero-style large product displays
+  - [x] Rotating spotlight items
+  - [x] Background image support
 
 **Product Display**
-- [ ] Show product name prominently
-- [ ] Display price in CZK format (e.g., "150 Kč")
-- [ ] Show product image if available
-- [ ] Fallback styling if image missing
-- [ ] Respect display order
+- [x] Show product name prominently
+- [x] Display price in CZK format (e.g., "150 Kč")
+- [x] Show product image if available
+- [x] Fallback styling if image missing
+- [x] Respect display order
 
 #### 2.3 Static Mode Rendering
-- [ ] Display uploaded static image fullscreen
-- [ ] Maintain aspect ratio
-- [ ] Center image on screen
-- [ ] Handle different orientations (landscape/portrait)
-- [ ] Support image formats: JPG, PNG, WebP
+- [x] Display uploaded static image fullscreen
+- [x] Maintain aspect ratio
+- [x] Center image on screen
+- [x] Handle different orientations (landscape/portrait)
+- [x] Support image formats: JPG, PNG, WebP
 
 #### 2.4 Real-Time Updates
-- [ ] Subscribe to Convex reactive queries
-- [ ] Automatically reflect changes when:
-  - [ ] Product prices updated
-  - [ ] Products added/removed from screen
-  - [ ] Screen config changed (mode switch, template change)
-  - [ ] Static image replaced
-  - [ ] Location branding updated
-- [ ] Smooth transitions (no jarring reloads)
-- [ ] Refresh based on configured interval
+- [x] Subscribe to Convex reactive queries
+- [x] Automatically reflect changes when:
+  - [x] Product prices updated
+  - [x] Products added/removed from screen
+  - [x] Screen config changed (mode switch, template change)
+  - [x] Static image replaced
+  - [x] Location branding updated
+- [x] Smooth transitions (no jarring reloads)
+- [x] Refresh based on configured interval
 
 #### 2.5 Display Optimizations
 - [ ] Disable browser sleep/screensaver via JavaScript
-- [ ] Prevent text selection
-- [ ] Disable context menu (right-click)
-- [ ] Hide cursor after inactivity (5 seconds)
-- [ ] Optimized font loading
-- [ ] Image lazy loading with priority hints
+- [x] Prevent text selection
+- [x] Disable context menu (right-click)
+- [x] Hide cursor after inactivity (5 seconds)
+- [x] Optimized font loading
+- [x] Image lazy loading with priority hints
 - [ ] Preload critical assets
 
 #### 2.6 Offline Fallback
@@ -406,7 +406,7 @@ Currently, updating digital signage content requires physical presence or comple
 - [x] Define schema with typed IDs
 - [x] Set up queries, mutations, actions
 - [x] Enable file storage for images
-- [ ] Real-time subscriptions for display updates
+- [x] Real-time subscriptions for display updates
 
 ### Display Requirements
 - [ ] Target resolution: 1920×1080 (1080p)
@@ -449,16 +449,16 @@ Currently, updating digital signage content requires physical presence or comple
 - [x] Image upload functionality
 
 **Week 5-6: Templates & Screens**
-- [ ] Template management system
-- [ ] Screen management (create/edit)
-- [ ] Mode selection (Dynamic/Static)
-- [ ] Static content upload/management
+- [x] Template management system
+- [x] Screen management (create/edit)
+- [x] Mode selection (Dynamic/Static)
+- [x] Static content upload/management
 
 **Week 7-8: Display Rendering**
-- [ ] Dynamic mode rendering with templates
-- [ ] Static mode rendering
-- [ ] Real-time updates via Convex subscriptions
-- [ ] Display optimizations
+- [x] Dynamic mode rendering with templates
+- [x] Static mode rendering
+- [x] Real-time updates via Convex subscriptions
+- [x] Display optimizations
 
 **Week 9-10: Polish & Testing**
 - [ ] Admin UI polish
