@@ -1,0 +1,153 @@
+---
+description: External API integration patterns, error handling, and async operations
+globs:
+  - convex/**/*actions.ts
+  - convex/**/*.ts
+alwaysApply: false
+---
+
+# API Integration Patterns
+
+## External API Calls
+
+- Use Convex `action` functions for all external API calls
+- Store API keys in environment variables (never commit to code)
+- Use `process.env.VARIABLE_NAME` to access environment variables
+- Validate API keys exist before making requests
+- Handle rate limiting and retries appropriately
+
+## Error Handling
+
+- Wrap API calls in try-catch blocks
+- Provide descriptive error messages
+- Log errors for debugging (use `console.error`)
+- Return structured error responses when possible
+- Handle network errors separately from API errors
+
+```typescript
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+
+export const callExternalAPI = action({
+  args: {
+    prompt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const apiKey = process.env.FAL_API_KEY;
+    if (!apiKey) {
+      throw new Error("FAL_API_KEY is not configured");
+    }
+
+    try {
+      const response = await fetch("https://api.example.com/endpoint", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Key ${apiKey}`,
+        },
+        body: JSON.stringify({ prompt: args.prompt }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error("API call failed:", error);
+      throw new Error(`Failed to call API: ${error.message}`);
+    }
+  },
+});
+```
+
+## Async Operations
+
+- Handle both synchronous and asynchronous API responses
+- Support polling for long-running operations
+- Store request IDs for tracking async operations
+- Use appropriate status tracking (pending, processing, completed, failed)
+
+## Response Handling
+
+- Extract data from various response formats
+- Handle nested response structures (e.g., `data.images`, `data.output`)
+- Support both array and single object responses
+- Validate response structure before processing
+
+```typescript
+// Helper function to extract URLs from various response formats
+const extractImageUrls = (images: any): string[] => {
+  if (!images) return [];
+  if (typeof images === "string") return [images];
+  if (Array.isArray(images)) {
+    return images.map((img: any) => {
+      if (typeof img === "string") return img;
+      if (img && typeof img === "object" && img.url) return img.url;
+      return null;
+    }).filter((url: string | null): url is string => url !== null);
+  }
+  if (typeof images === "object" && images.url) {
+    return [images.url];
+  }
+  return [];
+};
+```
+
+## Polling Patterns
+
+- Poll at appropriate intervals (2-5 seconds)
+- Stop polling when operation completes or fails
+- Handle timeout scenarios
+- Use request IDs for status checks
+- Clean up polling intervals properly
+
+```typescript
+// In client component
+useEffect(() => {
+  if (!shouldPoll) return;
+
+  const pollInterval = setInterval(async () => {
+    try {
+      const status = await pollStatusAction({
+        requestId: currentRequestId,
+        model: currentModel,
+      });
+
+      if (status.isCompleted && status.images.length > 0) {
+        await handleCompleted(status.images);
+        clearInterval(pollInterval);
+      } else if (status.isFailed) {
+        handleError(status.error);
+        clearInterval(pollInterval);
+      }
+    } catch (error) {
+      console.error("Polling error:", error);
+      clearInterval(pollInterval);
+    }
+  }, 2000); // Poll every 2 seconds
+
+  return () => clearInterval(pollInterval);
+}, [shouldPoll, currentRequestId]);
+```
+
+## File Download and Storage
+
+- Download files from URLs before storing
+- Upload to Convex storage using `ctx.storage.store()`
+- Get public URLs using `ctx.storage.getUrl()`
+- Store file metadata (size, mime type, dimensions)
+- Handle file download errors gracefully
+
+## Best Practices
+
+- Never expose API keys in client-side code
+- Use environment variables for configuration
+- Implement proper error handling and logging
+- Support both sync and async operations
+- Handle various response formats
+- Clean up resources (intervals, timeouts)
+- Validate all inputs before API calls
+- Rate limit requests when appropriate

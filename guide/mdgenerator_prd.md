@@ -282,42 +282,42 @@ Users need a centralized platform to:
 ### 1. Admin Portal (`/generator/admin`)
 
 #### 1.1 Dashboard
-- [ ] Overview of recent generations
-- [ ] Quick stats (total generations, images generated, videos generated)
-- [ ] Quick actions (generate image, generate video)
-- [ ] Recent generations gallery
+- [x] Quick actions (generate image, generate video)
+- [x] Overview of recent generations
+- [x] Quick stats (total generations, images generated, videos generated)
+- [x] Recent generations gallery
 - [ ] Storage usage indicator
 
 #### 1.2 Free Image Generation
 
 **Interface**
-- [ ] Model selector (Google Imagen 3, Nano Banana Flash as the main one - but easily added other)
-- [ ] Prompt input (textarea with character counter)
-- [ ] Negative prompt input (optional)
-- [ ] Image dimensions selector (predefined presets: 1024x1024, 1024x768, 768x1024, custom)
-- [ ] Number of images slider (1-4)
-- [ ] Advanced parameters panel (collapsible):
-  - [ ] Seed input (for reproducibility)
-  - [ ] Guidance scale slider
-  - [ ] Model-specific parameters
-- [ ] Generate button with loading state
-- [ ] Generation progress indicator
-- [ ] Results display with download options
+- [x] Model selector (Google Imagen 4, Nano Banana Flash - easily extensible)
+- [x] Prompt input (textarea with character counter)
+- [x] Negative prompt input (optional)
+- [x] Image dimensions selector (predefined presets: 1024x1024, 1024x768, 768x1024, custom)
+- [x] Number of images slider (1-4)
+- [x] Advanced parameters panel (collapsible):
+  - [x] Seed input (for reproducibility)
+  - [x] Guidance scale slider
+  - [x] Model-specific parameters
+- [x] Generate button with loading state
+- [x] Generation progress indicator
+- [x] Results display with download options
 
 **Functionality**
-- [ ] Integration with fal.ai API
-- [ ] Polling for generation status
-- [ ] Real-time status updates
-- [ ] Error handling and retry logic
-- [ ] Save generation to history
-- [ ] Quick download options
-- [ ] Add to collection button
+- [x] Integration with fal.ai API
+- [x] Polling for generation status
+- [x] Real-time status updates
+- [x] Error handling and retry logic
+- [x] Save generation to history
+- [x] Quick download options
+- [x] Add to collection button
 
 **Models Supported**
-- [ ] Google Imagen 4 
-- [ ] Nano Banana Flash 
-- [ ] Model-specific parameter handling
-- [ ] Other state of the art models
+- [x] Google Imagen 4 
+- [x] Nano Banana Flash 
+- [x] Model-specific parameter handling
+- [x] Other state of the art models (easily extensible)
 
 #### 1.3 Product Picture Generation
 
@@ -452,35 +452,36 @@ Users need a centralized platform to:
 #### 1.6 Generated Content Management
 
 **Gallery View**
-- [ ] Grid/list view toggle
-- [ ] Filter by type (image/video)
-- [ ] Filter by generation type (free/product/menu/video)
+- [x] Grid/list view toggle
+- [x] Filter by type (image/video)
+- [x] Filter by generation type (free/product/menu/video)
+- [x] Filter by model
 - [ ] Filter by date range
-- [ ] Search by prompt/keywords
-- [ ] Sort options (newest, oldest, file size)
+- [x] Search by prompt/keywords
+- [x] Sort options (newest, oldest, file size)
 
 **File Details**
-- [ ] Full-size preview
-- [ ] Metadata display:
-  - [ ] Generation parameters
-  - [ ] Model used
-  - [ ] Generation date
-  - [ ] File size and dimensions
-- [ ] Edit history timeline
-- [ ] Download options
-- [ ] Delete confirmation
-- [ ] Add to collection
+- [x] Full-size preview
+- [x] Metadata display:
+  - [x] Generation parameters
+  - [x] Model used
+  - [x] Generation date
+  - [x] File size and dimensions
+- [x] Edit history timeline
+- [x] Download options
+- [x] Delete confirmation
+- [x] Add to collection
 
 **Collections**
-- [ ] Create collection
-- [ ] Add files to collection
-- [ ] Remove files from collection
-- [ ] Delete collection
+- [x] Create collection
+- [x] Add files to collection
+- [x] Remove files from collection
+- [x] Delete collection
 - [ ] Share collection (if public)
-- [ ] View collection gallery
+- [x] View collection gallery
 
 **Edit History**
-- [ ] View all edits for a file
+- [x] View all edits for a file
 - [ ] Navigate through edit history
 - [ ] Revert to previous version
 - [ ] Download specific version
@@ -570,12 +571,12 @@ Users need a centralized platform to:
 
 **Pages Structure**
 - [x] `/generator/admin` - Main dashboard
-- [ ] `/generator/admin/free-image` - Free image generation
+- [x] `/generator/admin/free-image` - Free image generation
 - [ ] `/generator/admin/product-image` - Product image generation
 - [ ] `/generator/admin/menu` - Menu generation
 - [ ] `/generator/admin/video` - Video generation
-- [ ] `/generator/admin/gallery` - Content gallery
-- [ ] `/generator/admin/collections` - Collections management
+- [x] `/generator/admin/gallery` - Content gallery
+- [x] `/generator/admin/collections` - Collections management
 
 **Components**
 - [x] GeneratorNav - Left sidebar navigation
@@ -625,20 +626,23 @@ Users need a centralized platform to:
 - [x] Create dashboard page
 
 **Week 3-4: Free Image Generation**
-- [ ] Build free image generation form
-- [ ] Implement Google Imagen 4 integration
-- [ ] Implement Nano Banana Flash integration
-- [ ] Build generation status polling
-- [ ] Build results display
-- [ ] Implement file saving to Convex
-- [ ] Add download functionality
+- [x] Build free image generation form
+- [x] Implement Google Imagen 4 integration
+- [x] Implement Nano Banana Flash integration
+- [x] Build generation status polling
+- [x] Build results display
+- [x] Implement file saving to Convex
+- [x] Add download functionality
+- [x] Add to collection functionality
+- [x] Dashboard stats (total generations, images, videos)
+- [x] Recent generations gallery on dashboard
 
 **Week 5-6: Gallery & History**
-- [ ] Build gallery view
-- [ ] Implement filtering and search
-- [ ] Build file details page
-- [ ] Implement edit history tracking
-- [ ] Add collections feature
+- [x] Build gallery view
+- [x] Implement filtering and search
+- [x] Build file details page
+- [x] Implement edit history tracking
+- [x] Add collections feature
 
 ### Phase 2: Product Image Generation
 

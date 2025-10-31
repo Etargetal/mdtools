@@ -16,9 +16,17 @@ import {
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { Home, Download, Loader2, Sparkles, AlertCircle, CheckCircle2, Wand2 } from "lucide-react";
+import { Home, Download, Loader2, Sparkles, AlertCircle, CheckCircle2, Wand2, FolderPlus, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Available models
 const MODELS = [
@@ -55,6 +63,9 @@ export default function FreeImageGenerationPage() {
   const [currentGenerationId, setCurrentGenerationId] = useState<Id<"imageGenerations"> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
+  const [selectedFileId, setSelectedFileId] = useState<Id<"generatedFiles"> | null>(null);
+  const [newCollectionName, setNewCollectionName] = useState("");
 
   // Convex hooks
   const generateImageAction = useAction(api.generatorActions.generateImage);
@@ -62,6 +73,9 @@ export default function FreeImageGenerationPage() {
   const downloadAndStoreAction = useAction(api.generatorActions.downloadAndStoreFile);
   const createGeneration = useMutation(api.mutations.createImageGeneration);
   const updateGenerationStatus = useMutation(api.mutations.updateImageGenerationStatus);
+  const createCollection = useMutation(api.mutations.createCollection);
+  const updateCollection = useMutation(api.mutations.updateCollection);
+  const collections = useQuery(api.queries.getCollectionsByUser, { userId: TEMP_USER_ID });
 
   // Get current generation status
   const currentGeneration = useQuery(
@@ -283,6 +297,56 @@ export default function FreeImageGenerationPage() {
     } catch (error) {
       console.error("Download error:", error);
       alert("Failed to download image");
+    }
+  };
+
+  const handleAddToCollection = (fileId: Id<"generatedFiles">) => {
+    setSelectedFileId(fileId);
+    setCollectionDialogOpen(true);
+  };
+
+  const handleCreateCollection = async () => {
+    if (!newCollectionName.trim() || !selectedFileId) return;
+
+    try {
+      await createCollection({
+        userId: TEMP_USER_ID,
+        name: newCollectionName.trim(),
+        description: undefined,
+        fileIds: [selectedFileId],
+        isPublic: false,
+      });
+      setNewCollectionName("");
+      setCollectionDialogOpen(false);
+      setSelectedFileId(null);
+    } catch (error: any) {
+      console.error("Error creating collection:", error);
+      alert("Failed to create collection");
+    }
+  };
+
+  const handleAddToExistingCollection = async (collectionId: Id<"userCollections">) => {
+    if (!selectedFileId) return;
+
+    const collection = collections?.find((c) => c._id === collectionId);
+    if (!collection) return;
+
+    try {
+      // Add file to collection if not already present
+      const updatedFileIds = collection.fileIds.includes(selectedFileId)
+        ? collection.fileIds
+        : [...collection.fileIds, selectedFileId];
+
+      await updateCollection({
+        id: collectionId,
+        fileIds: updatedFileIds,
+      });
+
+      setCollectionDialogOpen(false);
+      setSelectedFileId(null);
+    } catch (error: any) {
+      console.error("Error updating collection:", error);
+      alert("Failed to add to collection");
     }
   };
 
@@ -604,6 +668,14 @@ export default function FreeImageGenerationPage() {
                             <Wand2 className="mr-2 h-4 w-4" />
                             Edit
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddToCollection(file._id)}
+                          >
+                            <FolderPlus className="mr-2 h-4 w-4" />
+                            Add to Collection
+                          </Button>
                         </div>
                         <div className="p-2 bg-background/80 backdrop-blur-sm">
                           <div className="text-xs text-muted-foreground">
@@ -617,6 +689,73 @@ export default function FreeImageGenerationPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Add to Collection Dialog */}
+            <Dialog open={collectionDialogOpen} onOpenChange={setCollectionDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add to Collection</DialogTitle>
+                  <DialogDescription>
+                    Select an existing collection or create a new one
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {/* Existing Collections */}
+                  {collections && collections.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Existing Collections</Label>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {collections.map((collection) => (
+                          <Button
+                            key={collection._id}
+                            variant="outline"
+                            className="w-full justify-start"
+                            onClick={() => handleAddToExistingCollection(collection._id)}
+                          >
+                            <FolderPlus className="mr-2 h-4 w-4" />
+                            {collection.name}
+                            {collection.fileIds.length > 0 && (
+                              <span className="ml-auto text-xs text-muted-foreground">
+                                {collection.fileIds.length} file(s)
+                              </span>
+                            )}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Create New Collection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="collection-name">Create New Collection</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="collection-name"
+                        placeholder="Collection name"
+                        value={newCollectionName}
+                        onChange={(e) => setNewCollectionName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && newCollectionName.trim()) {
+                            handleCreateCollection();
+                          }
+                        }}
+                      />
+                      <Button
+                        onClick={handleCreateCollection}
+                        disabled={!newCollectionName.trim()}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCollectionDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </main>
       </div>

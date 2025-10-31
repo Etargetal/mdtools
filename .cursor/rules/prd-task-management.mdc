@@ -1,0 +1,182 @@
+---
+description: Workflow for checking and updating PRD task lists during development
+globs:
+  - guide/**/*.md
+  - app/**/*.tsx
+  - components/**/*.tsx
+  - convex/**/*.ts
+alwaysApply: true
+---
+
+# PRD Task List Management
+
+## Task List Location
+
+The project uses a Product Requirements Document (PRD) with task checkboxes located at:
+- **Primary PRD**: `guide/mdgenerator_prd.md`
+- Contains development phases with week-by-week task lists
+- Tasks are marked with markdown checkboxes: `- [ ]` (incomplete) or `- [x]` (completed)
+
+## Required Workflow
+
+### Before Starting Work
+
+1. **Always read the PRD file** to understand current task status
+2. **Identify relevant tasks** from the PRD that relate to your current work
+3. **Check task dependencies** - ensure prerequisites are completed
+4. **Focus on one phase at a time** (e.g., Week 5-6: Gallery & History)
+
+```markdown
+# Example: When asked to implement "Gallery view"
+1. Read guide/mdgenerator_prd.md
+2. Find "Week 5-6: Gallery & History" section
+3. Identify task: "- [ ] Build gallery view"
+4. Check related tasks and dependencies
+5. Begin implementation
+```
+
+### During Implementation
+
+- **Reference the PRD** when making decisions about features
+- **Follow the PRD specifications** for requirements
+- **Update task status** as you complete work
+
+### After Completing Work
+
+1. **Mark completed tasks** by changing `- [ ]` to `- [x]`
+2. **Update the PRD immediately** after completing each task
+3. **Use exact checkbox format**: `- [x]` for completed, `- [ ]` for incomplete
+4. **Update multiple related tasks** if your work completed them
+
+```markdown
+# Example: After completing gallery view
+Change:
+- [ ] Build gallery view
+
+To:
+- [x] Build gallery view
+```
+
+## Task List Updates
+
+### When to Update
+
+- ✅ **After completing a task** - mark it as `- [x]`
+- ✅ **After implementing a feature** - mark all related tasks
+- ✅ **After finishing a phase** - mark all completed tasks in that phase
+- ✅ **Before moving to next phase** - ensure current phase tasks are marked
+
+### Update Format
+
+- Use exact markdown checkbox syntax
+- Preserve indentation and formatting
+- Keep task descriptions unchanged
+- Only change checkbox state: `[ ]` ↔ `[x]`
+
+```markdown
+# Correct format
+- [x] Build gallery view
+- [ ] Implement filtering and search
+
+# Wrong format
+- [X] Build gallery view  ❌ (capital X)
+- [ x ] Build gallery view  ❌ (spaces)
+- [x]Build gallery view  ❌ (no space after bracket)
+```
+
+## PRD Sections Structure
+
+The PRD contains:
+- **Feature Requirements** - Detailed feature specifications with checkboxes
+- **Development Phases** - Week-by-week breakdown with task lists
+- **Technical Specifications** - Implementation details with checkboxes
+
+Update checkboxes in **all relevant sections** when completing work.
+
+## Examples
+
+### Example 1: Completing Gallery View
+
+```markdown
+# Before
+**Week 5-6: Gallery & History**
+- [ ] Build gallery view
+- [ ] Implement filtering and search
+
+# After completing gallery view
+**Week 5-6: Gallery & History**
+- [x] Build gallery view
+- [ ] Implement filtering and search
+```
+
+### Example 2: Completing Multiple Tasks
+
+```markdown
+# If you implement gallery view AND filtering together
+**Week 5-6: Gallery & History**
+- [x] Build gallery view
+- [x] Implement filtering and search
+```
+
+### Example 3: Updating Feature Requirements
+
+```markdown
+# Feature Requirements section
+#### 1.6 Generated Content Management
+**Gallery View**
+- [ ] Grid/list view toggle
+- [ ] Filter by type (image/video)
+- [x] Filter by generation type (free/product/menu/video)  ← After implementing
+- [ ] Filter by date range
+```
+
+## Important Rules
+
+1. **Never skip reading the PRD** - Always check before starting work
+2. **Update PRD immediately** - Don't wait until the end of session
+3. **Be accurate** - Only mark tasks as completed when fully implemented
+4. **Preserve formatting** - Keep PRD structure intact
+5. **Update all relevant sections** - Check both Feature Requirements and Development Phases
+
+## Workflow Checklist
+
+Before starting any task:
+- [ ] Read `guide/mdgenerator_prd.md`
+- [ ] Identify relevant tasks
+- [ ] Check task dependencies
+- [ ] Note current checkbox states
+
+During implementation:
+- [ ] Follow PRD specifications
+- [ ] Reference PRD for requirements
+
+After completing work:
+- [ ] Update checkboxes: `- [ ]` → `- [x]`
+- [ ] Update in Feature Requirements section
+- [ ] Update in Development Phases section
+- [ ] Preserve PRD formatting
+
+## Best Practices
+
+- **Read PRD first** - Understand context before coding
+- **Update incrementally** - Mark tasks complete as you finish them
+- **Be thorough** - Check all sections that might contain related tasks
+- **Document completion** - Update PRD to reflect actual implementation status
+- **Keep PRD accurate** - It serves as project documentation
+
+## Special Cases
+
+- **Partial completion**: If a task is partially complete, add a comment or note
+- **Out of scope**: If a task is skipped, leave it as `- [ ]` with explanation
+- **Additional work**: If you add features not in PRD, consider adding them to PRD
+- **Phase completion**: When all tasks in a phase are done, verify and mark
+
+## Integration with Code Changes
+
+When you:
+- Create new files → Check if PRD tasks are completed
+- Modify existing files → Check if related PRD tasks are completed
+- Add features → Update PRD if feature is listed
+- Fix bugs → Update PRD if bug fix completes a task
+
+**Remember**: The PRD is the source of truth for project progress. Keep it updated and accurate.

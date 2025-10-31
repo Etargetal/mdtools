@@ -1,0 +1,175 @@
+---
+description: Loading states, error handling, and user feedback patterns
+globs:
+  - app/**/*.tsx
+  - components/**/*.tsx
+alwaysApply: false
+---
+
+# Loading States & User Feedback
+
+## Loading States
+
+- Show loading indicators for all async operations
+- Use appropriate loading UI (spinner, skeleton, progress bar)
+- Handle Convex query loading states (they return `undefined` while loading)
+- Disable interactive elements during loading
+- Provide clear feedback about what's loading
+
+```typescript
+// Good: Handle loading state
+const data = useQuery(api.queries.getData, { id });
+
+if (data === undefined) {
+  return <div className="flex items-center justify-center p-8">
+    <Loader2 className="h-8 w-8 animate-spin" />
+  </div>;
+}
+
+if (!data) {
+  return <div>No data found</div>;
+}
+
+return <div>{/* Render data */}</div>;
+```
+
+## Loading Indicators
+
+- Use `Loader2` from `lucide-react` for spinners
+- Show loading text alongside spinners
+- Use skeleton loaders for content placeholders
+- Indicate progress for long-running operations
+- Provide estimated time when possible
+
+```typescript
+// Good: Loading with text
+{isGenerating && (
+  <div className="flex items-center gap-2">
+    <Loader2 className="h-5 w-5 animate-spin" />
+    <span>Generating image...</span>
+  </div>
+)}
+
+// Good: Skeleton loader
+{!data && (
+  <div className="animate-pulse">
+    <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+    <div className="h-4 bg-muted rounded w-1/2"></div>
+  </div>
+)}
+```
+
+## Error States
+
+- Display user-friendly error messages
+- Show errors inline near the relevant form/action
+- Provide actionable error messages
+- Allow users to retry failed operations
+- Log errors for debugging (server-side)
+
+```typescript
+// Good: Error display
+{error && (
+  <div className="flex items-center gap-2 p-4 border border-destructive rounded-md bg-destructive/10 text-destructive">
+    <AlertCircle className="h-5 w-5" />
+    <div className="flex-1">
+      <div className="font-medium">Operation Failed</div>
+      <div className="text-sm">{error}</div>
+    </div>
+    <Button variant="outline" size="sm" onClick={handleRetry}>
+      Retry
+    </Button>
+  </div>
+)}
+```
+
+## Success States
+
+- Show success feedback after operations complete
+- Use toast notifications for non-critical success messages
+- Clear success messages after appropriate time
+- Allow users to dismiss success messages
+- Provide next steps after success
+
+```typescript
+// Good: Success feedback
+{success && (
+  <div className="flex items-center gap-2 p-4 border border-green-500 rounded-md bg-green-50 text-green-900">
+    <CheckCircle2 className="h-5 w-5" />
+    <div className="flex-1">
+      <div className="font-medium">Success!</div>
+      <div className="text-sm">Your image has been generated.</div>
+    </div>
+  </div>
+)}
+```
+
+## Empty States
+
+- Show helpful empty states when no data exists
+- Provide actions to populate empty states
+- Use appropriate illustrations or icons
+- Guide users on what to do next
+
+```typescript
+// Good: Empty state
+{items.length === 0 && (
+  <div className="text-center py-12">
+    <div className="text-muted-foreground mb-4">No items found</div>
+    <Button onClick={handleCreate}>Create First Item</Button>
+  </div>
+)}
+```
+
+## Async Operation Patterns
+
+- Disable buttons during async operations
+- Show loading state on the action button
+- Prevent duplicate submissions
+- Handle cancellation when possible
+- Clean up async operations on unmount
+
+```typescript
+// Good: Disable during async operation
+<Button
+  onClick={handleSubmit}
+  disabled={isSubmitting || !isValid}
+>
+  {isSubmitting ? (
+    <>
+      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      Submitting...
+    </>
+  ) : (
+    "Submit"
+  )}
+</Button>
+```
+
+## Polling Feedback
+
+- Show status during polling operations
+- Update UI as polling progresses
+- Handle polling errors gracefully
+- Stop polling when complete or failed
+- Show estimated time remaining (if available)
+
+## Progress Indicators
+
+- Show progress for long-running operations
+- Use progress bars for uploads/downloads
+- Indicate steps in multi-step processes
+- Show percentage complete when possible
+- Allow cancellation of long operations
+
+## Best Practices
+
+- Always show loading states for async operations
+- Provide clear error messages
+- Give success feedback
+- Handle empty states gracefully
+- Disable actions during operations
+- Prevent duplicate submissions
+- Clean up async operations
+- Use appropriate UI components (spinners, skeletons, toasts)
+- Keep users informed about operation status

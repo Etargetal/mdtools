@@ -1,0 +1,186 @@
+---
+description: Performance optimization patterns for React, Next.js, and Convex
+globs:
+  - app/**/*.tsx
+  - components/**/*.tsx
+alwaysApply: false
+---
+
+# Performance Optimization
+
+## React Performance
+
+- Use `React.memo` for expensive components that re-render frequently
+- Use `useMemo` for expensive computations
+- Use `useCallback` for functions passed to child components
+- Avoid creating new objects/arrays in render
+- Keep components small and focused
+
+```typescript
+// Good: Memoized component
+const ExpensiveComponent = React.memo(function ExpensiveComponent({ data }: Props) {
+  const processedData = useMemo(() => {
+    return expensiveComputation(data);
+  }, [data]);
+
+  return <div>{processedData}</div>;
+});
+
+// Good: Memoized callback
+const handleClick = useCallback(() => {
+  doSomething(id);
+}, [id]);
+```
+
+## Convex Query Optimization
+
+- Convex queries are automatically optimized and reactive
+- Use indexes for efficient queries (defined in schema)
+- Avoid unnecessary queries (use `"skip"` when conditions aren't met)
+- Batch related queries when possible
+- Don't over-fetch data (only query what you need)
+
+```typescript
+// Good: Skip query when not needed
+const data = useQuery(
+  api.queries.getData,
+  userId ? { userId } : "skip"
+);
+
+// Good: Use indexes
+const items = await ctx.db
+  .query("items")
+  .withIndex("by_status", (q) => q.eq("status", "active"))
+  .collect();
+```
+
+## Next.js Performance
+
+- Use Server Components by default (no `"use client"`)
+- Use dynamic imports for large components (`next/dynamic`)
+- Optimize images using Next.js Image component
+- Use `loading.tsx` for loading states
+- Implement proper code splitting
+
+```typescript
+// Good: Dynamic import for large component
+import dynamic from "next/dynamic";
+
+const HeavyComponent = dynamic(() => import("@/components/HeavyComponent"), {
+  loading: () => <div>Loading...</div>,
+  ssr: false, // Only if component requires client-side only
+});
+```
+
+## Image Optimization
+
+- Use Next.js `Image` component for automatic optimization
+- Provide appropriate `width` and `height` attributes
+- Use `loading="lazy"` for below-the-fold images
+- Optimize image formats (WebP when possible)
+- Use appropriate image sizes
+
+```typescript
+// Good: Optimized image
+import Image from "next/image";
+
+<Image
+  src={imageUrl}
+  alt="Description"
+  width={800}
+  height={600}
+  loading="lazy"
+  className="rounded-lg"
+/>
+```
+
+## Bundle Size
+
+- Use tree-shaking (automatic with modern bundlers)
+- Avoid importing entire libraries when only using a few functions
+- Use dynamic imports for large dependencies
+- Monitor bundle size regularly
+- Remove unused dependencies
+
+```typescript
+// Good: Import only what you need
+import { useState } from "react"; // ✅
+
+// Bad: Import entire library
+import * as React from "react"; // ❌ (if not needed)
+```
+
+## Rendering Optimization
+
+- Avoid unnecessary re-renders
+- Use `key` prop correctly for lists
+- Avoid inline object/array creation in JSX
+- Use stable references for props
+- Implement virtual scrolling for long lists
+
+```typescript
+// Good: Stable reference
+const items = useMemo(() => [
+  { id: 1, name: "Item 1" },
+  { id: 2, name: "Item 2" },
+], []);
+
+// Bad: New array on every render
+<div>{[1, 2, 3].map(...)}</div> // ❌
+```
+
+## Polling Optimization
+
+- Use appropriate polling intervals (not too frequent)
+- Stop polling when operation completes
+- Clean up intervals properly
+- Consider using WebSockets or Server-Sent Events when possible
+
+```typescript
+// Good: Clean up polling
+useEffect(() => {
+  if (!shouldPoll) return;
+
+  const interval = setInterval(() => {
+    pollStatus();
+  }, 2000);
+
+  return () => clearInterval(interval); // ✅ Cleanup
+}, [shouldPoll]);
+```
+
+## Lazy Loading
+
+- Lazy load images below the fold
+- Use dynamic imports for code splitting
+- Lazy load heavy components
+- Implement route-based code splitting (automatic with Next.js)
+
+## Caching
+
+- Leverage Convex's built-in caching
+- Use browser caching for static assets
+- Implement appropriate cache headers
+- Cache API responses when appropriate
+- Invalidate cache when data changes
+
+## Monitoring
+
+- Monitor bundle size
+- Track Core Web Vitals
+- Monitor API response times
+- Track render performance
+- Use Next.js analytics (Vercel Analytics)
+
+## Best Practices Summary
+
+- Optimize React rendering with memoization
+- Use Convex queries efficiently
+- Leverage Next.js optimizations
+- Optimize images and assets
+- Minimize bundle size
+- Avoid unnecessary re-renders
+- Clean up resources properly
+- Monitor performance metrics
+- Use lazy loading appropriately
+- Implement proper caching strategies

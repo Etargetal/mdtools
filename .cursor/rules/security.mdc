@@ -1,0 +1,159 @@
+---
+description: Security best practices for API keys, authentication, and data protection
+alwaysApply: true
+---
+
+# Security Best Practices
+
+## Environment Variables
+
+- Store sensitive data (API keys, secrets) in environment variables
+- Never commit API keys or secrets to version control
+- Use `.env.local` for local development (already in `.gitignore`)
+- Access environment variables only in server-side code (Convex actions)
+- Validate that required environment variables exist before use
+
+```typescript
+// Good: In Convex action
+const apiKey = process.env.FAL_API_KEY;
+if (!apiKey) {
+  throw new Error("FAL_API_KEY is not configured");
+}
+
+// Bad: Never expose in client code
+const apiKey = "hardcoded-key"; // ❌
+```
+
+## API Key Management
+
+- Store API keys in Convex dashboard environment variables
+- Use descriptive names for environment variables
+- Document required environment variables in README
+- Never log API keys in console or error messages
+- Rotate API keys regularly
+
+## Input Validation
+
+- Validate all user inputs on both client and server
+- Sanitize user inputs before processing
+- Use Zod schemas for type-safe validation
+- Reject invalid inputs early
+- Never trust client-side validation alone
+
+```typescript
+// Good: Validate with Zod
+const schema = z.object({
+  prompt: z.string().min(1).max(2000),
+  width: z.number().int().min(256).max(2048),
+});
+
+// Bad: No validation
+function processInput(input: any) {
+  return input.prompt; // ❌
+}
+```
+
+## Authentication
+
+- Authentication will be handled at application level (not in this module)
+- Use proper authentication for protected routes
+- Validate user permissions before operations
+- Never expose user IDs or sensitive data in URLs
+- Use secure session management
+
+## XSS Prevention
+
+- Sanitize user-generated content before display
+- Use React's built-in XSS protection (auto-escaping)
+- Avoid `dangerouslySetInnerHTML` unless absolutely necessary
+- Validate and sanitize if using `dangerouslySetInnerHTML`
+
+## CSRF Protection
+
+- Use Next.js built-in CSRF protection
+- Validate requests on server side
+- Use secure cookies for session management
+- Implement proper CORS policies
+
+## File Upload Security
+
+- Validate file types and sizes
+- Scan uploaded files for malware (if applicable)
+- Store files securely (Convex storage)
+- Don't execute uploaded files
+- Limit file sizes to prevent DoS attacks
+
+```typescript
+// Good: Validate file uploads
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+if (file.size > MAX_FILE_SIZE) {
+  throw new Error("File too large");
+}
+if (!ALLOWED_TYPES.includes(file.type)) {
+  throw new Error("Invalid file type");
+}
+```
+
+## SQL Injection Prevention
+
+- Use Convex's built-in query system (prevents SQL injection)
+- Never construct queries with string concatenation
+- Use parameterized queries through Convex API
+- Validate all inputs before database operations
+
+## Rate Limiting
+
+- Implement rate limiting for API calls
+- Limit requests per user/IP address
+- Handle rate limit errors gracefully
+- Provide clear error messages for rate limits
+
+## Error Handling
+
+- Never expose sensitive information in error messages
+- Log errors server-side with full details
+- Return generic error messages to clients
+- Don't leak system information in errors
+
+```typescript
+// Good: Generic error message
+catch (error: any) {
+  console.error("API error:", error); // Log full error server-side
+  throw new Error("Failed to generate image"); // Generic message to client
+}
+
+// Bad: Exposing internal details
+catch (error: any) {
+  throw new Error(`API key ${apiKey} failed: ${error.message}`); // ❌
+}
+```
+
+## HTTPS
+
+- Always use HTTPS in production
+- Enforce HTTPS redirects
+- Use secure cookies (`Secure` flag)
+- Validate SSL certificates
+
+## Data Privacy
+
+- Don't store sensitive user data unnecessarily
+- Encrypt sensitive data at rest
+- Use secure data transmission (HTTPS)
+- Follow GDPR/privacy regulations
+- Implement data retention policies
+
+## Best Practices Summary
+
+- Store secrets in environment variables
+- Validate all inputs
+- Use secure authentication
+- Prevent XSS and CSRF attacks
+- Secure file uploads
+- Implement rate limiting
+- Handle errors securely
+- Use HTTPS in production
+- Protect user privacy
+- Keep dependencies updated

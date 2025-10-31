@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 
 // Get all locations
 export const getLocations = query({
@@ -417,5 +418,320 @@ export const getPendingGenerations = query({
     }
 
     return allPending;
+  },
+});
+
+// Get dashboard stats for a user
+export const getDashboardStats = query({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get all image generations for user
+    const imageGenerations = await ctx.db
+      .query("imageGenerations")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Get all video generations for user
+    const videoGenerations = await ctx.db
+      .query("videoGenerations")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Count by type
+    const freeImageCount = imageGenerations.filter((g) => g.type === "free").length;
+    const productImageCount = imageGenerations.filter((g) => g.type === "product").length;
+    const menuCount = imageGenerations.filter((g) => g.type === "menu").length;
+    const videoCount = videoGenerations.length;
+
+    // Get all generated files for user
+    const allImageFiles = await ctx.db
+      .query("generatedFiles")
+      .withIndex("by_generationType", (q) => q.eq("generationType", "image"))
+      .collect();
+
+    const allVideoFiles = await ctx.db
+      .query("generatedFiles")
+      .withIndex("by_generationType", (q) => q.eq("generationType", "video"))
+      .collect();
+
+    // Filter files by user's generations
+    const userImageGenIds = new Set(imageGenerations.map((g) => g._id));
+    const userVideoGenIds = new Set(videoGenerations.map((g) => g._id));
+
+    // Type guard: image files filtered by generationType="image" should only have imageGeneration IDs
+    const userImageFiles = allImageFiles.filter((f) => {
+      const genId = f.generationId as Id<"imageGenerations">;
+      return userImageGenIds.has(genId);
+    });
+
+    // Type guard: video files filtered by generationType="video" should only have videoGeneration IDs
+    const userVideoFiles = allVideoFiles.filter((f) => {
+      const genId = f.generationId as Id<"videoGenerations">;
+      return userVideoGenIds.has(genId);
+    });
+
+    return {
+      totalImageGenerations: imageGenerations.length,
+      totalVideoGenerations: videoGenerations.length,
+      totalGenerations: imageGenerations.length + videoGenerations.length,
+      freeImageCount,
+      productImageCount,
+      menuCount,
+      videoCount,
+      totalImageFiles: userImageFiles.length,
+      totalVideoFiles: userVideoFiles.length,
+      totalFiles: userImageFiles.length + userVideoFiles.length,
+    };
+  },
+});
+
+// Get recent generations for dashboard
+export const getRecentGenerations = query({
+  args: {
+    userId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit || 10;
+
+    // Get recent image generations
+    const imageGenerations = await ctx.db
+      .query("imageGenerations")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Get recent video generations
+    const videoGenerations = await ctx.db
+      .query("videoGenerations")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Combine and sort by createdAt
+    const allGenerations = [
+      ...imageGenerations.map((g) => ({
+        ...g,
+        generationType: "image" as const,
+      })),
+      ...videoGenerations.map((g) => ({
+        ...g,
+        generationType: "video" as const,
+      })),
+    ].sort((a, b) => b.createdAt - a.createdAt);
+
+    // Get files for each generation
+    const recentGenerations = await Promise.all(
+      allGenerations.slice(0, limit).map(async (gen) => {
+        const files = await ctx.db
+          .query("generatedFiles")
+          .withIndex("by_generationId", (q) => q.eq("generationId", gen._id))
+          .collect();
+
+        return {
+          ...gen,
+          files: files.slice(0, 1), // Just get first file for thumbnail
+        };
+      })
+    );
+
+    return recentGenerations;
+  },
+});
+
+// Get files with generation details for gallery (with search and filters)
+export const getFilesWithDetails = query({
+  args: {
+    userId: v.string(),
+    fileType: v.optional(v.union(v.literal("image"), v.literal("video"))),
+    generationType: v.optional(v.union(v.literal("image"), v.literal("video"))),
+    imageGenerationType: v.optional(v.union(v.literal("free"), v.literal("product"), v.literal("menu"))),
+    modelFilter: v.optional(v.string()),
+    searchQuery: v.optional(v.string()),
+    dateFrom: v.optional(v.number()),
+    dateTo: v.optional(v.number()),
+    sortBy: v.optional(v.union(v.literal("newest"), v.literal("oldest"), v.literal("fileSize"))),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Get all user's generations
+    const imageGenerations = await ctx.db
+      .query("imageGenerations")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const videoGenerations = await ctx.db
+      .query("videoGenerations")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Filter generations by type if specified
+    let filteredImageGens = imageGenerations;
+    if (args.imageGenerationType) {
+      filteredImageGens = imageGenerations.filter((g) => g.type === args.imageGenerationType);
+    }
+
+    // Filter by model if specified
+    if (args.modelFilter) {
+      filteredImageGens = filteredImageGens.filter((g) => g.model === args.modelFilter);
+      const filteredVideoGens = videoGenerations.filter((g) => g.model === args.modelFilter);
+      videoGenerations.splice(0, videoGenerations.length, ...filteredVideoGens);
+    }
+
+    // Filter by search query if provided
+    if (args.searchQuery) {
+      const searchLower = args.searchQuery.toLowerCase();
+      filteredImageGens = filteredImageGens.filter((g) =>
+        g.prompt.toLowerCase().includes(searchLower)
+      );
+      const filteredVideoGens = videoGenerations.filter((g) =>
+        g.prompt.toLowerCase().includes(searchLower)
+      );
+      videoGenerations.splice(0, videoGenerations.length, ...filteredVideoGens);
+    }
+
+    // Filter by date range if provided
+    if (args.dateFrom) {
+      filteredImageGens = filteredImageGens.filter((g) => g.createdAt >= args.dateFrom!);
+      const filteredVideoGens = videoGenerations.filter((g) => g.createdAt >= args.dateFrom!);
+      videoGenerations.splice(0, videoGenerations.length, ...filteredVideoGens);
+    }
+    if (args.dateTo) {
+      filteredImageGens = filteredImageGens.filter((g) => g.createdAt <= args.dateTo!);
+      const filteredVideoGens = videoGenerations.filter((g) => g.createdAt <= args.dateTo!);
+      videoGenerations.splice(0, videoGenerations.length, ...filteredVideoGens);
+    }
+
+    const userGenIds = new Set([
+      ...filteredImageGens.map((g) => g._id),
+      ...videoGenerations.map((g) => g._id),
+    ]);
+
+    // Get all files
+    let files;
+    if (args.fileType) {
+      files = await ctx.db
+        .query("generatedFiles")
+        .withIndex("by_fileType", (q) => q.eq("fileType", args.fileType!))
+        .collect();
+    } else if (args.generationType) {
+      files = await ctx.db
+        .query("generatedFiles")
+        .withIndex("by_generationType", (q) => q.eq("generationType", args.generationType!))
+        .collect();
+    } else {
+      files = await ctx.db
+        .query("generatedFiles")
+        .withIndex("by_createdAt")
+        .collect();
+    }
+
+    // Filter files by user's generations
+    files = files.filter((f) => userGenIds.has(f.generationId));
+
+    // Sort files
+    const sortBy = args.sortBy || "newest";
+    if (sortBy === "newest") {
+      files.sort((a, b) => b.createdAt - a.createdAt);
+    } else if (sortBy === "oldest") {
+      files.sort((a, b) => a.createdAt - b.createdAt);
+    } else if (sortBy === "fileSize") {
+      files.sort((a, b) => b.fileSize - a.fileSize);
+    }
+
+    // Apply limit
+    if (args.limit) {
+      files = files.slice(0, args.limit);
+    }
+
+    // Get generation details for each file
+    const filesWithDetails = await Promise.all(
+      files.map(async (file) => {
+        let generation;
+        if (file.generationType === "image") {
+          generation = await ctx.db.get(file.generationId as Id<"imageGenerations">);
+        } else {
+          generation = await ctx.db.get(file.generationId as Id<"videoGenerations">);
+        }
+
+        return {
+          file,
+          generation,
+        };
+      })
+    );
+
+    return filesWithDetails;
+  },
+});
+
+// Get file with full details (for file details view)
+export const getFileWithFullDetails = query({
+  args: {
+    fileId: v.id("generatedFiles"),
+  },
+  handler: async (ctx, args) => {
+    const file = await ctx.db.get(args.fileId);
+    if (!file) return null;
+
+    let generation;
+    if (file.generationType === "image") {
+      generation = await ctx.db.get(file.generationId as Id<"imageGenerations">);
+    } else {
+      generation = await ctx.db.get(file.generationId as Id<"videoGenerations">);
+    }
+
+    // Get edit history
+    const editHistory = await ctx.db
+      .query("editHistory")
+      .withIndex("by_fileId", (q) => q.eq("fileId", args.fileId))
+      .collect();
+
+    // Get parent file if exists
+    let parentFile = null;
+    if (file.parentFileId) {
+      parentFile = await ctx.db.get(file.parentFileId);
+    }
+
+    // Get collections that include this file
+    const collections = await ctx.db
+      .query("userCollections")
+      .collect();
+    const collectionsWithFile = collections.filter((c) => c.fileIds.includes(args.fileId));
+
+    return {
+      file,
+      generation,
+      editHistory,
+      parentFile,
+      collections: collectionsWithFile,
+    };
+  },
+});
+
+// Get available models for a user (for filter dropdown)
+export const getAvailableModels = query({
+  args: {
+    userId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get all user's generations
+    const imageGenerations = await ctx.db
+      .query("imageGenerations")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const videoGenerations = await ctx.db
+      .query("videoGenerations")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Extract unique models
+    const models = new Set<string>();
+    imageGenerations.forEach((g) => models.add(g.model));
+    videoGenerations.forEach((g) => models.add(g.model));
+
+    // Sort models alphabetically
+    return Array.from(models).sort();
   },
 });

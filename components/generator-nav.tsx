@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Image, Package, Menu, Video, FolderOpen, Wand2 } from "lucide-react";
+import { LayoutDashboard, Image, Package, Menu, Video, FolderOpen, Wand2, FolderPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -13,6 +13,7 @@ const navigation = [
     { name: "Menu Generator", href: "/generator/admin/menu", icon: Menu },
     { name: "Video Generator", href: "/generator/admin/video", icon: Video },
     { name: "Gallery", href: "/generator/admin/gallery", icon: FolderOpen },
+    { name: "Collections", href: "/generator/admin/collections", icon: FolderPlus },
 ];
 
 export function GeneratorNav() {
