@@ -41,8 +41,10 @@ import {
   X,
   Plus,
   FolderOpen,
+  Wand2,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -52,6 +54,7 @@ import type { Doc } from "@/convex/_generated/dataModel";
 const TEMP_USER_ID = "user-1";
 
 export default function GalleryPage() {
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [fileTypeFilter, setFileTypeFilter] = useState<string>("all");
@@ -206,8 +209,8 @@ export default function GalleryPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b">
-        <div className="flex h-16 items-center justify-between px-6">
-          <h1 className="text-2xl font-bold">Gallery</h1>
+        <div className="flex h-16 items-center justify-between px-4 md:px-6">
+          <h1 className="text-xl md:text-2xl font-bold">Gallery</h1>
           <Link href="/">
             <Button variant="ghost" size="icon" title="Go to Home">
               <Home className="h-5 w-5" />
@@ -215,11 +218,11 @@ export default function GalleryPage() {
           </Link>
         </div>
       </div>
-      <div className="flex">
-        <aside className="w-64 border-r p-4">
+      <div className="flex flex-col md:flex-row">
+        <aside className="w-full md:w-64 border-r p-4 md:block">
           <GeneratorNav />
         </aside>
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 md:p-8">
           <div className="mb-6">
             <h2 className="text-3xl font-bold mb-2">Generated Content</h2>
             <p className="text-muted-foreground">
@@ -244,7 +247,7 @@ export default function GalleryPage() {
               </div>
 
               {/* Filters Row */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <Select value={fileTypeFilter} onValueChange={setFileTypeFilter}>
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="File Type" />
@@ -360,7 +363,7 @@ export default function GalleryPage() {
               </CardContent>
             </Card>
           ) : viewMode === "grid" ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filesWithDetails.map(({ file, generation }) => (
                 <Card
                   key={file._id}
@@ -421,7 +424,7 @@ export default function GalleryPage() {
                 >
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
-                      <div className="relative w-24 h-24 flex-shrink-0 rounded overflow-hidden">
+                      <div className="relative w-24 h-24 shrink-0 rounded overflow-hidden">
                         {file.fileType === "image" ? (
                           <img
                             src={file.fileUrl}
@@ -471,7 +474,7 @@ export default function GalleryPage() {
 
           {/* File Details Dialog */}
           <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4">
               {fileDetails ? (
                 <>
                   <DialogHeader>
@@ -500,7 +503,7 @@ export default function GalleryPage() {
                         )}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <Button
                           onClick={() =>
                             handleDownload(
@@ -508,14 +511,28 @@ export default function GalleryPage() {
                               `generated-${fileDetails.file._id}.${fileDetails.file.fileType === "image" ? "png" : "mp4"}`
                             )
                           }
-                          className="flex-1"
+                          className="flex-1 min-w-[120px]"
                         >
                           <Download className="mr-2 h-4 w-4" />
                           Download
                         </Button>
+                        {fileDetails.file.fileType === "image" && (
+                          <Button
+                            variant="default"
+                            onClick={() => {
+                              router.push(`/generator/admin/image-editor?fileId=${fileDetails.file._id}&imageUrl=${encodeURIComponent(fileDetails.file.fileUrl)}`);
+                              setIsDetailsOpen(false);
+                            }}
+                            className="flex-1 min-w-[120px]"
+                          >
+                            <Wand2 className="mr-2 h-4 w-4" />
+                            Edit
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           onClick={() => setIsCollectionDialogOpen(true)}
+                          className="flex-1 min-w-[120px]"
                         >
                           <FolderPlus className="mr-2 h-4 w-4" />
                           Add to Collection
@@ -523,6 +540,7 @@ export default function GalleryPage() {
                         <Button
                           variant="destructive"
                           onClick={() => handleDeleteFile(fileDetails.file._id)}
+                          className="min-w-[50px]"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -547,7 +565,7 @@ export default function GalleryPage() {
                           {fileDetails.generation && "model" in fileDetails.generation && (
                             <div>
                               <span className="text-muted-foreground">Model:</span>
-                              <p className="mt-1">{fileDetails.generation.model}</p>
+                              <p className="mt-1">{fileDetails.generation.model.split("/").pop()}</p>
                             </div>
                           )}
                         </div>

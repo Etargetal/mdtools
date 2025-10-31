@@ -130,6 +130,11 @@ export default function MenuGenerationPage() {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isUploadingBackground, setIsUploadingBackground] = useState(false);
 
+  // Edit history state for navigation
+  const [currentActiveFileIndex, setCurrentActiveFileIndex] = useState(0); // Index of currently displayed file
+  const [editPrompt, setEditPrompt] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+
   // Edit mode state
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingMenuId, setEditingMenuId] = useState<Id<"imageGenerations"> | null>(null);
@@ -679,17 +684,24 @@ export default function MenuGenerationPage() {
 
 
   const handleSaveToScreen = async (screenId: Id<"screens">) => {
-    if (!generatedFiles || generatedFiles.length === 0) {
+    if (!sortedFiles || sortedFiles.length === 0) {
       setGenerationError("No generated menu to save");
       return;
     }
 
     try {
+      // Use the currently active file
+      const activeFile = sortedFiles[currentActiveFileIndex];
+      if (!activeFile) {
+        setGenerationError("No active file to save");
+        return;
+      }
+
       await updateScreen({
         id: screenId,
         mode: "static",
         staticConfig: {
-          imageUrl: generatedFiles[0].fileUrl,
+          imageUrl: activeFile.fileUrl,
         },
       });
       setGenerationError(null);
@@ -708,22 +720,110 @@ export default function MenuGenerationPage() {
     link.click();
   };
 
+  const handleQuickEdit = async () => {
+    if (!editPrompt.trim() || !sortedFiles || sortedFiles.length === 0 || !currentGenerationId) {
+      return;
+    }
+
+    setIsEditing(true);
+    setGenerationError(null);
+
+    try {
+      // Get the currently active file (the one being displayed)
+      const currentActiveFile = sortedFiles[currentActiveFileIndex];
+      if (!currentActiveFile) {
+        throw new Error("No active file to edit");
+      }
+
+      // Use nano-banana/edit to edit the current image
+      const result = await editImageAction({
+        model: "fal-ai/nano-banana/edit",
+        imageUrl: currentActiveFile.fileUrl,
+        prompt: editPrompt.trim(),
+        numImages: 1,
+      });
+
+      if (result.isCompleted && result.images && result.images.length > 0) {
+        // Store the edited image as a new file linked to the current one
+        const width = currentActiveFile.width || 1920;
+        const height = currentActiveFile.height || 1080;
+
+        const stored = await downloadAndStoreAction({
+          url: result.images[0],
+          generationId: currentGenerationId,
+          generationType: "image",
+          width,
+          height,
+        });
+
+        // Update generation to include the new file
+        await updateGenerationStatus({
+          id: currentGenerationId,
+          status: "completed",
+          generatedFileIds: [...(currentGeneration?.generatedFileIds || []), stored.fileId],
+          completedAt: Date.now(),
+        });
+
+        // Set the new file as the active one (it will be the last one in the array)
+        // The generatedFiles query will automatically update and we'll show the new file
+        setEditPrompt("");
+        setIsEditing(false);
+      } else if (result.requestId) {
+        // Async generation - will be handled by polling
+        await updateGenerationStatus({
+          id: currentGenerationId,
+          status: "processing",
+          falRequestId: result.requestId,
+        });
+      }
+    } catch (error: any) {
+      console.error("Quick edit error:", error);
+      setGenerationError(error.message);
+      setIsEditing(false);
+    }
+  };
+
+  const handleGoBack = () => {
+    if (currentActiveFileIndex > 0) {
+      setCurrentActiveFileIndex(currentActiveFileIndex - 1);
+    }
+  };
+
+  const handleGoForward = () => {
+    if (sortedFiles && currentActiveFileIndex < sortedFiles.length - 1) {
+      setCurrentActiveFileIndex(currentActiveFileIndex + 1);
+    }
+  };
+
+  // Sort files by createdAt (oldest first) to ensure chronological order
+  const sortedFiles = generatedFiles
+    ? [...generatedFiles].sort((a, b) => a.createdAt - b.createdAt)
+    : null;
+
+  // Reset active file index when generatedFiles change (new generation or new edit)
+  useEffect(() => {
+    if (sortedFiles && sortedFiles.length > 0) {
+      // Always show the latest file (last in array)
+      setCurrentActiveFileIndex(sortedFiles.length - 1);
+    }
+  }, [sortedFiles?.length]);
+
   return (
-    <div className="flex h-screen bg-background">
-      <div className="w-64 border-r bg-muted/40 p-4">
+    <div className="flex flex-col md:flex-row h-screen bg-background">
+      <div className="w-full md:w-64 border-r bg-muted/40 p-4 md:block">
         <GeneratorNav />
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="border-b p-6">
-          <div className="flex items-center justify-between">
+        <div className="border-b p-4 md:p-6">
+          <div className="flex items-center justify-between flex-col md:flex-row gap-4">
             <div>
-              <h1 className="text-3xl font-bold">Menu Generator</h1>
-              <p className="text-muted-foreground mt-1">
+              <h1 className="text-2xl md:text-3xl font-bold">Menu Generator</h1>
+              <p className="text-muted-foreground mt-1 text-sm md:text-base">
                 Create AI-generated menu displays for digital signage
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full md:w-auto">
               {isEditMode && (
                 <Button
                   onClick={() => {
@@ -762,7 +862,7 @@ export default function MenuGenerationPage() {
                 <CardTitle>Menu Configuration</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label>Orientation</Label>
                     <Select value={orientation} onValueChange={(v) => setOrientation(v as any)}>
@@ -806,7 +906,7 @@ export default function MenuGenerationPage() {
                   </div>
                 </div>
                 {useCustomDimensions && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <Label>Width</Label>
                       <Input
@@ -1159,33 +1259,64 @@ export default function MenuGenerationPage() {
             </Card>
 
             {/* Results */}
-            {generatedFiles && generatedFiles.length > 0 && (
+            {sortedFiles && sortedFiles.length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Generated Menu</CardTitle>
+                  {sortedFiles.length > 1 && (
+                    <CardDescription>
+                      Version {currentActiveFileIndex + 1} of {sortedFiles.length}
+                      {currentActiveFileIndex === 0 && " (Original)"}
+                      {currentActiveFileIndex > 0 && ` (Edit ${currentActiveFileIndex})`}
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {generatedFiles.map((file) => (
-                    <div key={file._id} className="space-y-2">
+                  {/* Display current active file */}
+                  {sortedFiles[currentActiveFileIndex] && (
+                    <div className="space-y-2">
                       <div className="border rounded-lg overflow-hidden">
                         <img
-                          src={file.fileUrl}
-                          alt="Generated menu"
+                          src={sortedFiles[currentActiveFileIndex].fileUrl}
+                          alt={`Generated menu ${currentActiveFileIndex === 0 ? "original" : `edit ${currentActiveFileIndex}`}`}
                           className="w-full h-auto"
                         />
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
+                        {/* Navigation buttons */}
+                        {sortedFiles.length > 1 && (
+                          <>
+                            <Button
+                              onClick={handleGoBack}
+                              disabled={currentActiveFileIndex === 0}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <History className="h-4 w-4 mr-2" />
+                              Back
+                            </Button>
+                            <Button
+                              onClick={handleGoForward}
+                              disabled={currentActiveFileIndex === sortedFiles.length - 1}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Forward
+                            </Button>
+                          </>
+                        )}
                         <Button
-                          onClick={() => handleDownload(file.fileUrl, `menu-${Date.now()}.png`)}
+                          onClick={() => handleDownload(sortedFiles[currentActiveFileIndex].fileUrl, `menu-${Date.now()}.png`)}
                           variant="outline"
                           size="sm"
+                          className="flex-1 min-w-[100px]"
                         >
                           <Download className="h-4 w-4 mr-2" />
                           Download
                         </Button>
                         {screens && screens.length > 0 && (
                           <Select onValueChange={(v) => handleSaveToScreen(v as Id<"screens">)}>
-                            <SelectTrigger className="flex-1">
+                            <SelectTrigger className="flex-1 min-w-[150px]">
                               <SelectValue placeholder="Save to screen..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -1199,7 +1330,53 @@ export default function MenuGenerationPage() {
                         )}
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  {/* Quick Edit Section */}
+                  <div className="pt-4 border-t space-y-3">
+                    <div>
+                      <Label htmlFor="editPrompt">Quick Edit</Label>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Edit the current menu by describing what you want to change
+                      </p>
+                      <div className="flex gap-2">
+                        <Input
+                          id="editPrompt"
+                          value={editPrompt}
+                          onChange={(e) => setEditPrompt(e.target.value)}
+                          placeholder="e.g., Make the logo smaller, Change background to blue, Move products to the right"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleQuickEdit();
+                            }
+                          }}
+                          disabled={isEditing}
+                        />
+                        <Button
+                          onClick={handleQuickEdit}
+                          disabled={!editPrompt.trim() || isEditing}
+                        >
+                          {isEditing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Editing...
+                            </>
+                          ) : (
+                            <>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      {isEditing && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Editing menu... This may take a moment.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}

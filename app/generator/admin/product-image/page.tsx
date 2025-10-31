@@ -444,8 +444,8 @@ export default function ProductImageGenerationPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b">
-        <div className="flex h-16 items-center justify-between px-6">
-          <h1 className="text-2xl font-bold">Product Image Generation</h1>
+        <div className="flex h-16 items-center justify-between px-4 md:px-6">
+          <h1 className="text-xl md:text-2xl font-bold">Product Image Generation</h1>
           <Link href="/">
             <Button variant="ghost" size="icon" title="Go to Home">
               <Home className="h-5 w-5" />
@@ -453,11 +453,11 @@ export default function ProductImageGenerationPage() {
           </Link>
         </div>
       </div>
-      <div className="flex">
-        <aside className="w-64 border-r p-4">
+      <div className="flex flex-col md:flex-row">
+        <aside className="w-full md:w-64 border-r p-4 md:block">
           <GeneratorNav />
         </aside>
-        <main className="flex-1 p-8">
+        <main className="flex-1 p-4 md:p-8">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Generation Form */}
             <Card>
