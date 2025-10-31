@@ -359,44 +359,44 @@ Users need a centralized platform to:
 #### 1.4 Menu Generation for Signage
 
 **Menu Configuration**
-- [ ] Orientation selector (Portrait/Landscape)
-- [ ] Price position selector (Top/Bottom/Right/Left)
-- [ ] Product list manager:
-  - [ ] Add products from signage product library
-  - [ ] Add custom products
-  - [ ] Reorder products (drag-and-drop)
-  - [ ] Remove products
-- [ ] Image options:
-  - [ ] Use AI-generated product images (with prompt per product)
-  - [ ] Use provided/uploaded images
-  - [ ] Mix both options
-- [ ] Background options:
-  - [ ] Generate background (with prompt)
-  - [ ] Upload background image
-  - [ ] No background (solid color)
+- [x] Orientation selector (Portrait/Landscape)
+- [x] Price position selector (Top/Bottom/Right/Left)
+- [x] Product list manager:
+  - [x] Add products from signage product library
+  - [x] Add custom products
+  - [x] Reorder products (drag-and-drop)
+  - [x] Remove products
+- [x] Image options:
+  - [x] Use AI-generated product images (with prompt per product)
+  - [x] Use provided/uploaded images
+  - [x] Mix both options
+- [x] Background options:
+  - [x] Generate background (with prompt)
+  - [x] Upload background image
+  - [x] No background (solid color)
 - [ ] Menu template selector (if templates exist)
-- [ ] Preview pane (live preview)
+- [x] Preview pane (live preview)
 
 **Layout Options**
-- [ ] Grid layout options (2x2, 3x2, etc.)
-- [ ] List layout options
+- [x] Grid layout options (2x2, 3x2, etc.)
+- [x] List layout options
 - [ ] Featured product highlight
 - [ ] Spacing controls
 - [ ] Typography settings
 
 **Generation**
-- [ ] Generate menu button
-- [ ] Progress indicator
-- [ ] Results display
-- [ ] Export options:
-  - [ ] Export as image
-  - [ ] Save to signage screen
-  - [ ] Download as PNG/JPG
+- [x] Generate menu button
+- [x] Progress indicator
+- [x] Results display
+- [x] Export options:
+  - [x] Export as image
+  - [x] Save to signage screen
+  - [x] Download as PNG/JPG
 
 **Integration with Signage**
-- [ ] Link to signage products
-- [ ] Save menu directly to screen
-- [ ] Use as static asset in signage
+- [x] Link to signage products
+- [x] Save menu directly to screen
+- [x] Use as static asset in signage
 
 #### 1.5 Video Generator
 
@@ -573,7 +573,7 @@ Users need a centralized platform to:
 - [x] `/generator/admin` - Main dashboard
 - [x] `/generator/admin/free-image` - Free image generation
 - [x] `/generator/admin/product-image` - Product image generation
-- [ ] `/generator/admin/menu` - Menu generation
+- [x] `/generator/admin/menu` - Menu generation
 - [ ] `/generator/admin/video` - Video generation
 - [x] `/generator/admin/gallery` - Content gallery
 - [x] `/generator/admin/collections` - Collections management
@@ -657,13 +657,13 @@ Users need a centralized platform to:
 ### Phase 3: Menu Generation
 
 **Week 9-10: Menu Generation**
-- [ ] Extend schema for menu generation
-- [ ] Build menu configuration interface
-- [ ] Implement product selection from signage
-- [ ] Build layout options
-- [ ] Implement background generation/upload
-- [ ] Build preview pane
-- [ ] Integrate with signage screens
+- [x] Extend schema for menu generation
+- [x] Build menu configuration interface
+- [x] Implement product selection from signage
+- [x] Build layout options
+- [x] Implement background generation/upload
+- [x] Build preview pane
+- [x] Integrate with signage screens
 
 ### Phase 4: Video Generation
 
