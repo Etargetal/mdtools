@@ -1,0 +1,158 @@
+---
+description: ESLint compliance, code formatting, error handling, and documentation guidelines
+alwaysApply: true
+---
+
+# Code Quality
+
+## ESLint Compliance
+
+- Follow Next.js ESLint configuration (`next/core-web-vitals`, `next/typescript`)
+- Fix all ESLint errors before committing
+- Use ESLint comments to disable rules only when necessary with explanation
+- Keep code lint-free and maintainable
+
+## Code Formatting
+
+- Use consistent indentation (2 spaces for TypeScript/TSX)
+- Use single quotes for strings (or double quotes consistently)
+- Add trailing commas in multi-line objects/arrays
+- Use semicolons consistently
+- Format code before committing
+
+## Error Handling
+
+- Handle errors gracefully with try-catch blocks
+- Provide user-friendly error messages
+- Log errors appropriately (console.error for debugging)
+- Use error boundaries for React component errors
+- Return `null` for "not found" cases, not errors
+
+```typescript
+// Good: Error handling
+try {
+  const result = await action();
+  return result;
+} catch (error) {
+  console.error("Action failed:", error);
+  throw new Error("Failed to perform action");
+}
+
+// Good: Null for not found
+const item = await query();
+if (!item) return null;
+```
+
+## Async/Await Patterns
+
+- Prefer `async/await` over Promise chains
+- Handle errors in async functions with try-catch
+- Use `Promise.all()` for parallel operations
+- Avoid nested async/await when possible
+
+```typescript
+// Good: Parallel operations
+const [users, posts] = await Promise.all([
+  getUsers(),
+  getPosts(),
+]);
+
+// Good: Error handling
+async function fetchData() {
+  try {
+    const data = await api.getData();
+    return data;
+  } catch (error) {
+    handleError(error);
+    throw error;
+  }
+}
+```
+
+## Comments and Documentation
+
+- Write self-documenting code (clear variable/function names)
+- Add comments for complex logic or business rules
+- Use JSDoc comments for exported functions/types
+- Explain "why" not "what" in comments
+- Keep comments up-to-date with code changes
+
+```typescript
+// Good: JSDoc for exported functions
+/**
+ * Generates an image using the specified AI model
+ * @param prompt - The text prompt describing the image
+ * @param model - The AI model to use for generation
+ * @returns Promise resolving to the generated image URL
+ */
+export async function generateImage(
+  prompt: string,
+  model: string
+): Promise<string> {
+  // implementation
+}
+
+// Good: Comment explaining why
+// Use index query for better performance with large datasets
+const result = await ctx.db
+  .query("items")
+  .withIndex("by_status", (q) => q.eq("status", "active"))
+  .collect();
+```
+
+## Type Safety
+
+- Avoid `any` type; use `unknown` and type guards instead
+- Use type assertions sparingly and only when necessary
+- Leverage TypeScript's type inference when appropriate
+- Define interfaces for complex object shapes
+
+## Performance Considerations
+
+- Avoid unnecessary re-renders (use React.memo, useMemo, useCallback)
+- Use Convex queries efficiently (they're already optimized)
+- Minimize bundle size (tree-shake unused imports)
+- Optimize images and assets
+- Use dynamic imports for large dependencies
+
+## Testing Considerations
+
+- Write testable code (pure functions, clear dependencies)
+- Keep components focused and testable
+- Extract business logic from components when possible
+- Use meaningful variable and function names
+
+## Code Organization
+
+- Keep functions small and focused (single responsibility)
+- Extract reusable logic into utilities or hooks
+- Avoid deep nesting (max 3-4 levels)
+- Use early returns to reduce nesting
+
+```typescript
+// Good: Early returns
+function processData(data: unknown) {
+  if (!data) return null;
+  if (typeof data !== "string") return null;
+  
+  // process data
+  return result;
+}
+```
+
+## Git Commit Messages
+
+- Use clear, descriptive commit messages
+- Follow conventional commit format when possible
+- Reference issue numbers if applicable
+
+## Best Practices Summary
+
+- Write clean, readable code
+- Follow TypeScript best practices
+- Handle errors appropriately
+- Document complex logic
+- Keep code DRY (Don't Repeat Yourself)
+- Use consistent formatting
+- Test your code before committing
+- Keep dependencies up-to-date

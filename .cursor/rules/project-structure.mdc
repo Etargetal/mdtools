@@ -1,0 +1,146 @@
+---
+description: File organization patterns, path aliases, import ordering, and naming conventions
+alwaysApply: true
+---
+
+# Project Structure
+
+## Directory Organization
+
+- `app/` - Next.js App Router pages and layouts
+  - `app/generator/` - Generator module routes
+  - `app/signage/` - Signage module routes
+- `components/` - Reusable React components
+  - `components/ui/` - shadcn/ui components
+- `convex/` - Convex backend functions
+  - `convex/queries.ts` - Read operations
+  - `convex/mutations.ts` - Write operations
+  - `convex/generatorActions.ts` - Generator module actions
+  - `convex/schema.ts` - Database schema
+- `lib/` - Utility functions and shared code
+- `public/` - Static assets
+
+## Path Aliases
+
+- Use `@/` prefix for all imports (configured in tsconfig.json)
+- Examples:
+  - `@/components` - React components
+  - `@/lib` - Utility functions
+  - `@/convex` - Convex functions
+  - `@/app` - App directory (if needed)
+
+```typescript
+// Good
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { api } from "@/convex/_generated/api";
+
+// Avoid
+import { Button } from "../../components/ui/button";
+```
+
+## File Naming Conventions
+
+- Use `kebab-case` for file names: `free-image.tsx`, `image-editor.tsx`
+- Use `PascalCase` for component names: `FreeImageGenerator`, `ImageEditor`
+- Use `camelCase` for utility functions: `formatDate`, `generateId`
+- Use `SCREAMING_SNAKE_CASE` for constants: `MAX_FILE_SIZE`, `API_ENDPOINT`
+
+## Import Ordering
+
+1. External dependencies (React, Next.js, Convex, etc.)
+2. Internal path aliases (`@/components`, `@/lib`, etc.)
+3. Relative imports (if needed)
+4. Type imports (prefer `import type` when importing types only)
+
+```typescript
+// 1. External dependencies
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useQuery, useMutation } from "convex/react";
+
+// 2. Internal path aliases
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { api } from "@/convex/_generated/api";
+
+// 3. Type imports
+import type { Id } from "@/convex/_generated/dataModel";
+```
+
+## Component Organization
+
+- One component per file (default export)
+- Named exports for utilities, hooks, types
+- Co-locate related components in the same directory
+- Use `index.ts` files for barrel exports when appropriate
+
+## Module Boundaries
+
+- Keep Convex functions separate from React components
+- Keep UI components in `components/ui/` generic and reusable
+- Keep page-specific components in the same directory as the page
+- Keep utility functions in `lib/` directory
+
+## Route Organization
+
+- Use Next.js App Router conventions
+- Group related routes in folders
+- Use `(groupName)` for route groups without URL segments
+- Keep layouts at the appropriate level
+
+```
+app/
+  generator/
+    admin/
+      free-image/
+        page.tsx
+      image-editor/
+        page.tsx
+  signage/
+    admin/
+      locations/
+        page.tsx
+```
+
+## Convex Function Organization
+
+- Group queries in `convex/queries.ts`
+- Group mutations in `convex/mutations.ts`
+- Group actions by domain (e.g., `generatorActions.ts`)
+- Keep schema definition in `convex/schema.ts`
+
+## Naming Patterns
+
+- Pages: `page.tsx` (default export)
+- Layouts: `layout.tsx` (default export)
+- Components: `ComponentName.tsx` (PascalCase, default export)
+- Hooks: `useHookName.ts` (camelCase starting with "use")
+- Utilities: `utilityName.ts` (camelCase)
+- Types: `types.ts` or inline with components
+- Constants: `constants.ts` or `CONSTANTS.ts`
+
+## Examples
+
+```typescript
+// component/Button.tsx
+export default function Button() { }
+
+// lib/utils.ts
+export function cn(...inputs: ClassValue[]) { }
+
+// hooks/useData.ts
+export function useData() { }
+
+// constants.ts
+export const MAX_FILE_SIZE = 10 * 1024 * 1024;
+```
+
+## Best Practices
+
+- Keep files focused and single-purpose
+- Avoid deep nesting (max 3-4 levels)
+- Use barrel exports (`index.ts`) for cleaner imports when appropriate
+- Group related files in directories
+- Follow Next.js conventions for App Router structure
+- Maintain clear separation between client and server code

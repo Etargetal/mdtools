@@ -1,0 +1,70 @@
+---
+description: TypeScript strict mode enforcement and type safety guidelines
+alwaysApply: true
+---
+
+# TypeScript Standards
+
+## Type Safety
+
+- Enable `strict` mode in `tsconfig.json` (already configured)
+- Explicitly declare all types; avoid using `any` type
+- Use `unknown` instead of `any` when type is truly unknown, then narrow with type guards
+- Prefer type inference for simple cases, but explicitly type function parameters and return types
+
+## Function Type Definitions
+
+- Always provide explicit return types for exported functions
+- Use TypeScript's built-in utility types (`Partial`, `Pick`, `Omit`, etc.) when appropriate
+- Define prop types using interfaces for React components
+- Use type aliases for unions and complex types
+
+## Type Definitions
+
+- Create interfaces for object shapes (props, configuration objects)
+- Use type unions for discriminated unions (e.g., `status: "active" | "inactive"`)
+- Prefer `interface` over `type` for object shapes that might be extended
+- Use `type` for unions, intersections, and primitive aliases
+
+## Examples
+
+```typescript
+// Good: Explicit return type
+export function getLocationBySlug(slug: string): Promise<Location | null> {
+  // implementation
+}
+
+// Good: Proper interface for props
+interface ButtonProps {
+  variant?: "default" | "outline" | "ghost";
+  size?: "sm" | "md" | "lg";
+  children: React.ReactNode;
+}
+
+// Good: Type union for status
+type Status = "active" | "inactive" | "pending";
+
+// Avoid: Using any
+function processData(data: any) { } // ❌
+
+// Good: Use unknown and narrow
+function processData(data: unknown) {
+  if (typeof data === "string") {
+    // data is now typed as string
+  }
+}
+```
+
+## Convex-Specific Types
+
+- Use Convex generated types: `Id<"tableName">` for document IDs
+- Import types from `@/convex/_generated/dataModel`
+- Use `v.*` validators from `convex/values` for schema validation
+- Type Convex query/mutation/action args and return values explicitly
+
+## Type Narrowing
+
+- Use type guards for runtime type checking
+- Leverage TypeScript's discriminated unions for type narrowing
+- Use `as const` for literal types when needed
+- Prefer `null` over `undefined` for optional values (Convex convention)

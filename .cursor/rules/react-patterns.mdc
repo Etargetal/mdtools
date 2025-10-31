@@ -1,0 +1,97 @@
+---
+description: React 19 functional component patterns and hooks best practices
+globs:
+  - app/**/*.tsx
+  - components/**/*.tsx
+alwaysApply: false
+---
+
+# React Patterns
+
+## Component Structure
+
+- Use functional components only (no class components)
+- Add `"use client"` directive at the top of client components
+- Export components as default exports for pages, named exports for reusable components
+- Define prop interfaces/types above the component definition
+
+## React Hooks
+
+- Use hooks at the top level of components, never inside conditionals or loops
+- Follow the Rules of Hooks: only call hooks from React functions
+- Use `useState` for local component state
+- Use `useEffect` for side effects (data fetching, subscriptions, DOM manipulation)
+- Include proper dependency arrays in `useEffect`
+- Clean up subscriptions and effects in `useEffect` return functions
+
+## Convex Hooks
+
+- Use `useQuery` for reactive data fetching
+- Use `useMutation` for write operations
+- Use `useAction` for backend actions (API calls, file operations)
+- Pass `"skip"` as second argument to skip queries when conditions aren't met
+- Handle loading states from Convex hooks (they return `undefined` while loading)
+
+## Component Patterns
+
+- Extract reusable logic into custom hooks
+- Keep components focused and single-purpose
+- Use composition over inheritance
+- Pass handlers as props, not inline functions when possible (for performance)
+- Use React.memo for expensive components that re-render frequently
+
+## State Management
+
+- Prefer local state for component-specific data
+- Use Convex queries for server state
+- Lift state up only when multiple components need it
+- Use controlled components for form inputs
+
+## Examples
+
+```typescript
+"use client";
+
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+
+interface ComponentProps {
+  userId: string;
+}
+
+export default function Component({ userId }: ComponentProps) {
+  const [localState, setLocalState] = useState("");
+  
+  // Convex hooks
+  const data = useQuery(
+    api.queries.getData,
+    userId ? { userId } : "skip"
+  );
+  const updateData = useMutation(api.mutations.updateData);
+
+  useEffect(() => {
+    if (!data) return;
+    // side effect logic
+    return () => {
+      // cleanup
+    };
+  }, [data]);
+
+  return <div>{/* component JSX */}</div>;
+}
+```
+
+## Error Handling
+
+- Handle loading states (data is `undefined` while loading)
+- Handle error states appropriately
+- Use error boundaries for component tree error handling
+- Display user-friendly error messages
+
+## Performance
+
+- Avoid creating new objects/arrays in render (use `useMemo` or `useCallback`)
+- Use `useCallback` for functions passed to child components
+- Use `useMemo` for expensive computations
+- React to Convex queries automatically handle re-renders efficiently

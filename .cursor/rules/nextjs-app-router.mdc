@@ -1,0 +1,110 @@
+---
+description: Next.js 16 App Router conventions and patterns
+globs:
+  - app/**/*.tsx
+alwaysApply: false
+---
+
+# Next.js App Router
+
+## File Structure
+
+- Use `page.tsx` for route pages
+- Use `layout.tsx` for shared layouts
+- Use `loading.tsx` for loading UI
+- Use `error.tsx` for error boundaries
+- Use `not-found.tsx` for 404 pages
+- Use `route.ts` for API routes
+
+## Server vs Client Components
+
+- Server components are the default (no `"use client"` directive)
+- Use client components (`"use client"`) only when needed for:
+  - Interactivity (event handlers, useState, useEffect)
+  - Browser APIs (localStorage, window, etc.)
+  - Third-party libraries that require client-side execution
+- Keep server components when possible for better performance
+
+## Metadata
+
+- Export `metadata` object for page metadata
+- Use `Metadata` type from `next` for type safety
+- Include title and description at minimum
+
+```typescript
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Page Title",
+  description: "Page description",
+};
+```
+
+## Navigation
+
+- Use `Link` component from `next/link` for internal navigation
+- Use `useRouter` from `next/navigation` for programmatic navigation
+- Prefer `Link` over `useRouter` for better accessibility and SEO
+
+## Dynamic Routes
+
+- Use `[param]` for dynamic segments
+- Access params via `params` prop in server components
+- Use `useParams` hook in client components
+
+## Examples
+
+```typescript
+// Server Component (page.tsx)
+import type { Metadata } from "next";
+import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  description: "Admin dashboard",
+};
+
+export default function DashboardPage() {
+  return (
+    <div>
+      <Link href="/admin">Admin</Link>
+    </div>
+  );
+}
+
+// Client Component (page.tsx)
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+
+export default function ClientPage() {
+  const router = useRouter();
+  const params = useParams();
+  
+  return <div>{/* component */}</div>;
+}
+```
+
+## Route Groups
+
+- Use `(groupName)` for route groups without affecting URL structure
+- Useful for organizing routes with shared layouts
+
+## Layouts
+
+- Layouts wrap child routes and persist across navigation
+- Use nested layouts for shared UI (navbars, sidebars)
+- Access `children` prop in layouts
+
+## Data Fetching
+
+- Use Convex queries (`useQuery`) in client components
+- Fetch data in server components directly (when Convex supports it)
+- Use `loading.tsx` for loading states
+- Use `error.tsx` for error boundaries
+
+## Path Aliases
+
+- Use `@/` prefix for imports (configured in tsconfig.json)
+- Examples: `@/components`, `@/lib`, `@/convex`

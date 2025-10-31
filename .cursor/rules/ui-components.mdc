@@ -1,0 +1,150 @@
+---
+description: shadcn/ui component patterns with Radix UI and CVA
+globs:
+  - components/ui/**/*.tsx
+alwaysApply: false
+---
+
+# UI Components
+
+## Component Structure
+
+- Use Radix UI primitives as the foundation
+- Follow shadcn/ui patterns (New York style)
+- Use CVA (class-variance-authority) for component variants
+- Export component and variants separately
+
+## CVA Patterns
+
+- Define variants using `cva()` function
+- Create type-safe variant props using `VariantProps<typeof variants>`
+- Use `cn()` utility for className merging
+- Define default variants in `defaultVariants`
+
+```typescript
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+
+const buttonVariants = cva(
+  "base-classes-here",
+  {
+    variants: {
+      variant: {
+        default: "variant-classes",
+        outline: "outline-classes",
+      },
+      size: {
+        sm: "small-classes",
+        default: "default-classes",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default",
+    },
+  }
+);
+
+interface ButtonProps
+  extends React.ComponentProps<"button">,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
+}
+
+function Button({ className, variant, size, ...props }: ButtonProps) {
+  return (
+    <button
+      className={cn(buttonVariants({ variant, size, className }))}
+      {...props}
+    />
+  );
+}
+
+export { Button, buttonVariants };
+```
+
+## Radix UI Integration
+
+- Use `Slot` from `@radix-ui/react-slot` for `asChild` pattern
+- Import Radix UI primitives from their respective packages
+- Follow Radix UI accessibility guidelines
+- Use composition patterns for complex components
+
+## Accessibility
+
+- Include proper ARIA attributes
+- Ensure keyboard navigation works
+- Use semantic HTML elements
+- Support screen readers
+- Include focus-visible styles
+- Handle disabled states properly
+
+## Component Props
+
+- Extend appropriate HTML element props
+- Use `React.ComponentProps<"element">` for base props
+- Include variant props via `VariantProps`
+- Use optional props with sensible defaults
+- Document props with JSDoc comments for complex components
+
+## Examples
+
+```typescript
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+
+const componentVariants = cva(
+  "inline-flex items-center justify-center rounded-md",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground",
+        outline: "border bg-background",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+);
+
+interface ComponentProps
+  extends React.ComponentProps<"button">,
+    VariantProps<typeof componentVariants> {
+  asChild?: boolean;
+}
+
+const Component = React.forwardRef<HTMLButtonElement, ComponentProps>(
+  ({ className, variant, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button";
+    return (
+      <Comp
+        className={cn(componentVariants({ variant, className }))}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Component.displayName = "Component";
+
+export { Component, componentVariants };
+```
+
+## Component Library Conventions
+
+- Use `lucide-react` for icons (as configured in components.json)
+- Follow shadcn/ui component structure
+- Place components in `components/ui/` directory
+- Use `data-slot` attributes for component identification
+- Support dark mode via CSS variables
+
+## Styling
+
+- Use Tailwind CSS utility classes
+- Use CSS variables for theming (defined in globals.css)
+- Support dark mode through `dark:` variants
+- Use `cn()` utility for conditional and merged classes
+- Keep component styles focused and composable

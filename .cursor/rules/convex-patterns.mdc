@@ -1,0 +1,130 @@
+---
+description: Convex query, mutation, and action patterns with schema validation
+globs:
+  - convex/**/*.ts
+alwaysApply: false
+---
+
+# Convex Patterns
+
+## Function Types
+
+- **Queries**: Read-only operations, automatically reactive
+- **Mutations**: Write operations, transactional
+- **Actions**: Operations that can call external APIs or perform side effects
+
+## Query Functions
+
+- Use `query` from `./_generated/server`
+- Define `args` using `v.*` validators from `convex/values`
+- Use `handler` async function with `ctx` and `args` parameters
+- Use indexes for efficient queries (`.withIndex()`)
+- Return data directly (no need to wrap in response object)
+
+```typescript
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+export const getLocationBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("locations")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .first();
+  },
+});
+```
+
+## Mutation Functions
+
+- Use `mutation` from `./_generated/server`
+- Define `args` using `v.*` validators
+- Use `ctx.db.insert()`, `ctx.db.patch()`, `ctx.db.replace()`, `ctx.db.delete()` for database operations
+- Always update `updatedAt` timestamp when modifying records
+- Use `Date.now()` for timestamps
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const updateLocation = mutation({
+  args: {
+    id: v.id("locations"),
+    name: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, {
+      ...updates,
+      updatedAt: Date.now(),
+    });
+    return await ctx.db.get(id);
+  },
+});
+```
+
+## Action Functions
+
+- Use `action` from `./_generated/server`
+- Use for external API calls, file operations, or other side effects
+- Access environment variables via `process.env`
+- Can call queries and mutations using `ctx.runQuery` and `ctx.runMutation`
+
+```typescript
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+
+export const generateImage = action({
+  args: {
+    prompt: v.string(),
+    model: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const apiKey = process.env.FAL_API_KEY;
+    // External API call
+    const response = await fetch(/* ... */);
+    return response.json();
+  },
+});
+```
+
+## Schema Validation
+
+- Use `v.string()`, `v.number()`, `v.boolean()` for primitives
+- Use `v.id("tableName")` for document IDs
+- Use `v.optional()` for optional fields
+- Use `v.array()` for arrays
+- Use `v.object()` for nested objects
+- Use `v.union(v.literal("value1"), v.literal("value2"))` for discriminated unions
+
+## Database Queries
+
+- Prefer indexes over full table scans
+- Use `.withIndex("indexName", (q) => q.eq("field", value))` for indexed queries
+- Use `.filter()` for additional filtering (applied after index)
+- Use `.first()` for single results, `.collect()` for arrays
+- Use `.order()` for sorting
+
+## Error Handling
+
+- Throw errors with descriptive messages
+- Handle errors in the client, not in Convex functions
+- Return `null` for "not found" cases (not errors)
+- Use try-catch for external API calls in actions
+
+## File Storage
+
+- Use `ctx.storage.generateUploadUrl()` for file uploads
+- Use `ctx.storage.getUrl()` to get file URLs
+- Store storage IDs in database (`v.id("_storage")`)
+
+## Best Practices
+
+- Keep queries simple and focused
+- Use mutations for data modifications
+- Use actions for side effects and external APIs
+- Group related functions in the same file (queries.ts, mutations.ts, actions.ts)
+- Use consistent naming: `get*` for queries, `create*`/`update*`/`delete*` for mutations
+- Always include `createdAt` and `updatedAt` timestamps
+- Use indexes defined in schema.ts for efficient queries
