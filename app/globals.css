@@ -122,4 +122,18 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Thicker borders for inputs on mobile */
+  @media (max-width: 768px) {
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="url"],
+    textarea,
+    select {
+      border-width: 2px !important;
+    }
+  }
 }

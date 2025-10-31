@@ -42,6 +42,7 @@ import {
   Plus,
   FolderOpen,
   Wand2,
+  Menu as MenuIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -68,6 +69,7 @@ export default function GalleryPage() {
   const [isCreateCollectionOpen, setIsCreateCollectionOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [newCollectionDescription, setNewCollectionDescription] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Convex queries
   const filesWithDetails = useQuery(
@@ -210,7 +212,17 @@ export default function GalleryPage() {
     <div className="min-h-screen bg-background">
       <div className="border-b">
         <div className="flex h-16 items-center justify-between px-4 md:px-6">
-          <h1 className="text-xl md:text-2xl font-bold">Gallery</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden"
+            >
+              <MenuIcon className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl md:text-2xl font-bold">Gallery</h1>
+          </div>
           <Link href="/">
             <Button variant="ghost" size="icon" title="Go to Home">
               <Home className="h-5 w-5" />
@@ -219,9 +231,15 @@ export default function GalleryPage() {
         </div>
       </div>
       <div className="flex flex-col md:flex-row">
-        <aside className="w-full md:w-64 border-r p-4 md:block">
-          <GeneratorNav />
+        <aside className={sidebarOpen ? "w-full md:w-64 border-r p-4 md:block fixed md:relative inset-0 md:inset-auto z-50 md:z-auto bg-background md:bg-transparent" : "w-full md:w-64 border-r p-4 hidden md:block"}>
+          <GeneratorNav isOpen={sidebarOpen} onToggle={() => setSidebarOpen(false)} />
         </aside>
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
         <main className="flex-1 p-4 md:p-8">
           <div className="mb-6">
             <h2 className="text-3xl font-bold mb-2">Generated Content</h2>
@@ -484,46 +502,48 @@ export default function GalleryPage() {
                     </DialogDescription>
                   </DialogHeader>
 
-                  <div className="grid gap-6 md:grid-cols-2">
-                    {/* Preview */}
+                  <div className="space-y-6">
+                    {/* Preview - Larger */}
                     <div className="space-y-4">
-                      <div className="relative aspect-square rounded-lg overflow-hidden border">
+                      <div className="relative w-full rounded-lg overflow-hidden border bg-muted/50">
                         {fileDetails.file.fileType === "image" ? (
                           <img
                             src={fileDetails.file.fileUrl}
                             alt={fileDetails.generation?.prompt || "Generated image"}
-                            className="w-full h-full object-contain"
+                            className="w-full h-auto max-h-[60vh] object-contain mx-auto"
                           />
                         ) : (
                           <video
                             src={fileDetails.file.fileUrl}
                             controls
-                            className="w-full h-full object-contain"
+                            className="w-full h-auto max-h-[60vh] object-contain mx-auto"
                           />
                         )}
                       </div>
 
-                      <div className="flex gap-2 flex-wrap">
+                      {/* Action Buttons - All consistent styling */}
+                      <div className="flex gap-2 flex-wrap justify-center">
                         <Button
+                          variant="outline"
                           onClick={() =>
                             handleDownload(
                               fileDetails.file.fileUrl,
                               `generated-${fileDetails.file._id}.${fileDetails.file.fileType === "image" ? "png" : "mp4"}`
                             )
                           }
-                          className="flex-1 min-w-[120px]"
+                          className="flex-1 min-w-[140px]"
                         >
                           <Download className="mr-2 h-4 w-4" />
                           Download
                         </Button>
                         {fileDetails.file.fileType === "image" && (
                           <Button
-                            variant="default"
+                            variant="outline"
                             onClick={() => {
                               router.push(`/generator/admin/image-editor?fileId=${fileDetails.file._id}&imageUrl=${encodeURIComponent(fileDetails.file.fileUrl)}`);
                               setIsDetailsOpen(false);
                             }}
-                            className="flex-1 min-w-[120px]"
+                            className="flex-1 min-w-[140px]"
                           >
                             <Wand2 className="mr-2 h-4 w-4" />
                             Edit
@@ -532,22 +552,24 @@ export default function GalleryPage() {
                         <Button
                           variant="outline"
                           onClick={() => setIsCollectionDialogOpen(true)}
-                          className="flex-1 min-w-[120px]"
+                          className="flex-1 min-w-[140px]"
                         >
                           <FolderPlus className="mr-2 h-4 w-4" />
                           Add to Collection
                         </Button>
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           onClick={() => handleDeleteFile(fileDetails.file._id)}
-                          className="min-w-[50px]"
+                          className="flex-1 min-w-[140px] border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
                         </Button>
                       </div>
                     </div>
 
                     {/* Metadata */}
+                    <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-4">
                       <div>
                         <h3 className="font-semibold mb-2">Generation Details</h3>
@@ -565,12 +587,42 @@ export default function GalleryPage() {
                           {fileDetails.generation && "model" in fileDetails.generation && (
                             <div>
                               <span className="text-muted-foreground">Model:</span>
-                              <p className="mt-1">{fileDetails.generation.model.split("/").pop()}</p>
+                                <p className="mt-1">{fileDetails.generation.model.split("/").pop()}</p>
                             </div>
                           )}
                         </div>
                       </div>
 
+                        {/* Collections */}
+                        {fileDetails.collections && fileDetails.collections.length > 0 && (
+                          <div>
+                            <h3 className="font-semibold mb-2">Collections</h3>
+                            <div className="space-y-1">
+                              {fileDetails.collections.map((collection) => (
+                                <div
+                                  key={collection._id}
+                                  className="flex items-center justify-between text-sm p-2 rounded bg-muted"
+                                >
+                                  <span>{collection.name}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveFromCollection(collection._id, fileDetails.file._id);
+                                    }}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
                       <div>
                         <h3 className="font-semibold mb-2">File Information</h3>
                         <div className="space-y-2 text-sm">
@@ -603,34 +655,6 @@ export default function GalleryPage() {
                         </div>
                       </div>
 
-                      {/* Collections */}
-                      {fileDetails.collections && fileDetails.collections.length > 0 && (
-                        <div>
-                          <h3 className="font-semibold mb-2">Collections</h3>
-                          <div className="space-y-1">
-                            {fileDetails.collections.map((collection) => (
-                              <div
-                                key={collection._id}
-                                className="flex items-center justify-between text-sm p-2 rounded bg-muted"
-                              >
-                                <span>{collection.name}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveFromCollection(collection._id, fileDetails.file._id);
-                                  }}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
                       {/* Edit History */}
                       {fileDetails.editHistory && fileDetails.editHistory.length > 0 && (
                         <div>
@@ -652,6 +676,7 @@ export default function GalleryPage() {
                           </div>
                         </div>
                       )}
+                      </div>
                     </div>
                   </div>
                 </>

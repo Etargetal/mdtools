@@ -16,7 +16,7 @@ import {
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { Home, Download, Loader2, Sparkles, AlertCircle, CheckCircle2, Wand2, FolderPlus, Plus } from "lucide-react";
+import { Home, Download, Loader2, Sparkles, AlertCircle, CheckCircle2, Wand2, FolderPlus, Plus, Menu as MenuIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -66,6 +66,7 @@ export default function FreeImageGenerationPage() {
   const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<Id<"generatedFiles"> | null>(null);
   const [newCollectionName, setNewCollectionName] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Convex hooks
   const generateImageAction = useAction(api.generatorActions.generateImage);
@@ -362,7 +363,17 @@ export default function FreeImageGenerationPage() {
     <div className="min-h-screen bg-background">
       <div className="border-b">
         <div className="flex h-16 items-center justify-between px-4 md:px-6">
-          <h1 className="text-xl md:text-2xl font-bold">Free Image Generation</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden"
+            >
+              <MenuIcon className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl md:text-2xl font-bold">Free Image Generation</h1>
+          </div>
           <Link href="/">
             <Button variant="ghost" size="icon" title="Go to Home">
               <Home className="h-5 w-5" />
@@ -371,9 +382,15 @@ export default function FreeImageGenerationPage() {
         </div>
       </div>
       <div className="flex flex-col md:flex-row">
-        <aside className="w-full md:w-64 border-r p-4 md:block">
-          <GeneratorNav />
+        <aside className={sidebarOpen ? "w-full md:w-64 border-r p-4 md:block fixed md:relative inset-0 md:inset-auto z-50 md:z-auto bg-background md:bg-transparent" : "w-full md:w-64 border-r p-4 hidden md:block"}>
+          <GeneratorNav isOpen={sidebarOpen} onToggle={() => setSidebarOpen(false)} />
         </aside>
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
         <main className="flex-1 p-4 md:p-8">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Generation Form */}
@@ -647,7 +664,42 @@ export default function FreeImageGenerationPage() {
                           alt="Generated"
                           className="w-full h-auto"
                         />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center gap-2 justify-center opacity-0 group-hover:opacity-100">
+                        {/* Mobile: Always visible buttons */}
+                        <div className="md:hidden p-3 bg-background/95 border-t flex gap-2 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              handleDownload(file.fileUrl, `generated-${file._id}.png`)
+                            }
+                            className="flex-1 min-w-[100px]"
+                          >
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              router.push(`/generator/admin/image-editor?fileId=${file._id}&imageUrl=${encodeURIComponent(file.fileUrl)}`);
+                            }}
+                            className="flex-1 min-w-[100px]"
+                          >
+                            <Wand2 className="mr-2 h-4 w-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddToCollection(file._id)}
+                            className="flex-1 min-w-[100px]"
+                          >
+                            <FolderPlus className="mr-2 h-4 w-4" />
+                            Collection
+                          </Button>
+                        </div>
+                        {/* Desktop: Hover overlay */}
+                        <div className="hidden md:flex absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors items-center gap-2 justify-center opacity-0 group-hover:opacity-100">
                           <Button
                             variant="secondary"
                             size="sm"

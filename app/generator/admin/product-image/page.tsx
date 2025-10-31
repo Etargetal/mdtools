@@ -16,7 +16,7 @@ import {
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { Home, Download, Loader2, Sparkles, AlertCircle, CheckCircle2, Wand2, FolderPlus, Upload, X, Image as ImageIcon } from "lucide-react";
+import { Home, Download, Loader2, Sparkles, AlertCircle, CheckCircle2, Wand2, FolderPlus, Upload, X, Image as ImageIcon, Menu as MenuIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -85,6 +85,7 @@ export default function ProductImageGenerationPage() {
   const [newCollectionName, setNewCollectionName] = useState("");
   const [isUploadingStyle, setIsUploadingStyle] = useState(false);
   const [isUploadingBackground, setIsUploadingBackground] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Convex hooks
   const generateImageAction = useAction(api.generatorActions.generateImage);
@@ -445,7 +446,17 @@ export default function ProductImageGenerationPage() {
     <div className="min-h-screen bg-background">
       <div className="border-b">
         <div className="flex h-16 items-center justify-between px-4 md:px-6">
-          <h1 className="text-xl md:text-2xl font-bold">Product Image Generation</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden"
+            >
+              <MenuIcon className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl md:text-2xl font-bold">Product Image Generation</h1>
+          </div>
           <Link href="/">
             <Button variant="ghost" size="icon" title="Go to Home">
               <Home className="h-5 w-5" />
@@ -454,9 +465,15 @@ export default function ProductImageGenerationPage() {
         </div>
       </div>
       <div className="flex flex-col md:flex-row">
-        <aside className="w-full md:w-64 border-r p-4 md:block">
-          <GeneratorNav />
+        <aside className={sidebarOpen ? "w-full md:w-64 border-r p-4 md:block fixed md:relative inset-0 md:inset-auto z-50 md:z-auto bg-background md:bg-transparent" : "w-full md:w-64 border-r p-4 hidden md:block"}>
+          <GeneratorNav isOpen={sidebarOpen} onToggle={() => setSidebarOpen(false)} />
         </aside>
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
         <main className="flex-1 p-4 md:p-8">
           <div className="max-w-4xl mx-auto space-y-6">
             {/* Generation Form */}

@@ -34,6 +34,7 @@ import {
   Edit,
   Eraser,
   History,
+  Menu as MenuIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -142,6 +143,7 @@ export default function MenuGenerationPage() {
   const [originalBackgroundUrl, setOriginalBackgroundUrl] = useState<string | null>(null);
   const [editMenuDialogOpen, setEditMenuDialogOpen] = useState(false);
   const [editingProductPosition, setEditingProductPosition] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Convex hooks
   const activeProducts = useQuery(api.queries.getActiveProducts);
@@ -811,7 +813,20 @@ export default function MenuGenerationPage() {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-background">
       <div className="w-full md:w-64 border-r bg-muted/40 p-4 md:block">
-        <GeneratorNav />
+        <div className="flex items-center justify-between mb-2 md:hidden">
+          <span className="text-sm font-semibold">Navigation</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="h-8 w-8"
+          >
+            {sidebarOpen ? <X className="h-4 w-4" /> : <MenuIcon className="h-4 w-4" />}
+          </Button>
+        </div>
+        <div className={sidebarOpen ? "block" : "hidden md:block"}>
+          <GeneratorNav isOpen={sidebarOpen} onToggle={() => setSidebarOpen(false)} />
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden">

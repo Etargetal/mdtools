@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { GeneratorNav } from "@/components/generator-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Home, Image, Package, Menu, Video, Loader2 } from "lucide-react";
+import { Plus, Home, Image, Package, Menu, Video, Loader2, Menu as MenuIcon } from "lucide-react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -13,14 +14,25 @@ import { Id } from "@/convex/_generated/dataModel";
 const TEMP_USER_ID = "user-1";
 
 export default function GeneratorDashboard() {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     const stats = useQuery(api.queries.getDashboardStats, { userId: TEMP_USER_ID });
     const recentGenerations = useQuery(api.queries.getRecentGenerations, { userId: TEMP_USER_ID, limit: 8 });
 
     return (
         <div className="min-h-screen bg-background">
             <div className="border-b">
-                <div className="flex h-16 items-center justify-between px-6">
-                    <h1 className="text-2xl font-bold">AI Generator Admin</h1>
+                <div className="flex h-16 items-center justify-between px-4 md:px-6">
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            className="md:hidden"
+                        >
+                            <MenuIcon className="h-5 w-5" />
+                        </Button>
+                        <h1 className="text-xl md:text-2xl font-bold">AI Generator Admin</h1>
+                    </div>
                     <Link href="/">
                         <Button variant="ghost" size="icon" title="Go to Home">
                             <Home className="h-5 w-5" />
@@ -28,14 +40,20 @@ export default function GeneratorDashboard() {
                     </Link>
                 </div>
             </div>
-            <div className="flex">
-                <aside className="w-64 border-r p-4">
-                    <GeneratorNav />
+            <div className="flex flex-col md:flex-row">
+                <aside className={sidebarOpen ? "w-full md:w-64 border-r p-4 md:block fixed md:relative inset-0 md:inset-auto z-50 md:z-auto bg-background md:bg-transparent" : "w-full md:w-64 border-r p-4 hidden md:block"}>
+                    <GeneratorNav isOpen={sidebarOpen} onToggle={() => setSidebarOpen(false)} />
                 </aside>
-                <main className="flex-1 p-8">
+                {sidebarOpen && (
+                    <div
+                        className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+                <main className="flex-1 p-4 md:p-8">
                     <div className="mb-8">
-                        <h2 className="text-3xl font-bold">Dashboard</h2>
-                        <p className="text-muted-foreground mt-2">
+                        <h2 className="text-2xl md:text-3xl font-bold">Dashboard</h2>
+                        <p className="text-muted-foreground mt-2 text-sm md:text-base">
                             Overview of your AI generation platform
                         </p>
                     </div>
