@@ -526,17 +526,82 @@ export const editImage = action({
     numImages: v.optional(v.number()),
     outputFormat: v.optional(v.union(v.literal("jpeg"), v.literal("png"), v.literal("webp"))),
     aspectRatio: v.optional(v.string()),
+    additionalImageUrls: v.optional(v.array(v.string())), // For multiple image remixing
   },
   handler: async (ctx, args) => {
     if (!FAL_API_KEY) {
       throw new Error("FAL_API_KEY is not configured");
     }
 
+    // Upload images to fal.ai storage to get publicly accessible URLs
+    // This is required because fal.ai APIs need publicly accessible URLs
+    const uploadToFalStorage = async (url: string): Promise<string> => {
+      try {
+        // Check if it's a storage ID (short string without http/https/data, typically starts with 'k' for Convex)
+        // Storage IDs are usually 20-30 characters and don't contain slashes or colons
+        const isStorageId = !url.startsWith("http://") && 
+                            !url.startsWith("https://") && 
+                            !url.startsWith("data:") &&
+                            url.length > 10 && 
+                            url.length < 50 &&
+                            !url.includes("/") &&
+                            !url.includes(":");
+
+        if (isStorageId) {
+          // It's likely a Convex storage ID, convert it to a URL
+          try {
+            const storageId = url as Id<"_storage">;
+            const storageUrl = await ctx.storage.getUrl(storageId);
+            if (!storageUrl) {
+              throw new Error(`Failed to get URL for storage ID: ${url}`);
+            }
+            url = storageUrl;
+          } catch (error: any) {
+            throw new Error(`Invalid storage ID: ${url}. Error: ${error.message}`);
+          }
+        }
+
+        // Check if URL is already a publicly accessible URL (like from fal.ai or other CDN)
+        if (url.startsWith("https://storage.googleapis.com/") || 
+            url.startsWith("https://fal.ai/") ||
+            (url.startsWith("https://") && (url.includes("googleapis.com") || url.includes("fal.ai")))) {
+          return url; // Already a public URL
+        }
+
+        // Convex storage URLs are publicly accessible, so we can use them directly
+        // fal.ai APIs can fetch images from any publicly accessible HTTPS URL
+        if (url.startsWith("https://")) {
+          // Use the URL directly - fal.ai should be able to fetch it
+          return url;
+        }
+
+        // If not HTTPS, we can't use it
+        throw new Error(`Image URL must be publicly accessible HTTPS URL. Got: ${url}`);
+      } catch (error: any) {
+        console.error("Error processing image URL:", error);
+        throw new Error(`Failed to process image URL: ${error.message}`);
+      }
+    };
+
+    // Upload all images to fal.ai storage
+    const baseImageUrl = await uploadToFalStorage(args.imageUrl);
+    const additionalUrls: string[] = [];
+    
+    if (args.additionalImageUrls && args.additionalImageUrls.length > 0) {
+      for (const url of args.additionalImageUrls) {
+        const publicUrl = await uploadToFalStorage(url);
+        additionalUrls.push(publicUrl);
+      }
+    }
+
     // Prepare request body for image editing
     // According to API docs: prompt and image_urls (array) are required
+    // nano-banana/edit supports multiple images for remixing
+    const imageUrls = [baseImageUrl, ...additionalUrls];
+    
     const requestBody: any = {
       prompt: args.prompt,
-      image_urls: [args.imageUrl], // Must be an array
+      image_urls: imageUrls, // Array of publicly accessible images for remixing
     };
 
     // Add optional parameters
