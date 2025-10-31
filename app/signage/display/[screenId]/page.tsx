@@ -139,9 +139,9 @@ function DisplayContent({
       style={{
         fontFamily: branding.font || "Inter, sans-serif",
         backgroundColor: branding.primaryColor,
+        userSelect: "none",
       }}
       onContextMenu={(e) => e.preventDefault()}
-      onSelectStart={(e) => e.preventDefault()}
     >
       {/* Background Image */}
       {backgroundImage && (
@@ -257,11 +257,12 @@ function GridLayout({
   branding: any;
 }) {
   const columns = template.columns || 3;
-  const gridCols = {
+  const gridColsMap: Record<number, string> = {
     2: "grid-cols-2",
     3: "grid-cols-3",
     4: "grid-cols-4",
-  }[columns] || "grid-cols-3";
+  };
+  const gridCols = gridColsMap[columns as keyof typeof gridColsMap] || "grid-cols-3";
 
   return (
     <div className="h-full w-full p-8 overflow-auto">
@@ -583,7 +584,6 @@ function StaticDisplay({ screen }: { screen: any }) {
           src={imageUrl}
           alt="Static display"
           className="max-w-full max-h-full object-contain"
-          style={{ imageRendering: "high-quality" }}
         />
       </div>
     </div>

@@ -37,7 +37,7 @@ export default function StaticAssetsPage() {
   const uploadFileAndGetUrl = useAction(api.files.uploadFileAndGetUrl);
 
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<Id<"staticAssets">> | null>(null);
+  const [deletingId, setDeletingId] = useState<Id<"staticAssets"> | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedAsset, setSelectedAsset] = useState<Doc<"staticAssets"> | null>(null);

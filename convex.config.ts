@@ -1,6 +1,5 @@
-import { defineConfig } from "convex/server";
+// Convex configuration file
+// This file can be customized if needed for your Convex deployment
 
-export default defineConfig({
-  // You can add configuration here if needed
-});
+export default {};
 
