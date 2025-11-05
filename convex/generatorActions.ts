@@ -507,17 +507,17 @@ export const pollGenerationStatus = action({
 });
 
 /**
- * Generate video from image using fal.ai
+ * Generate video from image using fal.ai WAN Pro image-to-video
+ * Supports: fal-ai/wan-pro/image-to-video
+ * API docs: https://fal.ai/models/fal-ai/wan-pro/image-to-video/api
  */
 export const generateVideoFromImage = action({
   args: {
     model: v.string(),
     imageUrl: v.string(),
     prompt: v.string(),
-    motionStrength: v.optional(v.number()),
-    duration: v.optional(v.number()),
-    width: v.optional(v.number()),
-    height: v.optional(v.number()),
+    seed: v.optional(v.number()),
+    enableSafetyChecker: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     if (!FAL_API_KEY) {
@@ -529,18 +529,22 @@ export const generateVideoFromImage = action({
       prompt: args.prompt,
     };
 
-    if (args.motionStrength !== undefined) {
-      requestBody.motion_bucket_id = Math.floor(args.motionStrength * 127); // Typical range 0-127
+    // WAN Pro specific parameters
+    if (args.seed !== undefined) {
+      requestBody.seed = args.seed;
     }
-    if (args.duration) {
-      requestBody.duration = args.duration;
-    }
-    if (args.width && args.height) {
-      requestBody.image_size = `${args.width}x${args.height}`;
-    }
+    // Safety checker defaults to true in API, but we want it disabled by default
+    requestBody.enable_safety_checker = args.enableSafetyChecker !== undefined ? args.enableSafetyChecker : false;
 
     try {
-      const response = await fetch(`${FAL_API_BASE_URL}/${args.model}`, {
+      // WAN Pro uses queue-based API
+      const submitUrl = `${FAL_API_BASE_URL}/${args.model}`;
+
+      console.log("Submitting image-to-video request to:", submitUrl);
+      console.log("Model:", args.model);
+      console.log("Request body:", JSON.stringify(requestBody, null, 2));
+
+      const submitResponse = await fetch(submitUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -549,32 +553,60 @@ export const generateVideoFromImage = action({
         body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`fal.ai API error: ${response.status} - ${errorText}`);
+      if (!submitResponse.ok) {
+        const errorText = await submitResponse.text();
+        console.error("Submit error response:", errorText);
+        throw new Error(`fal.ai API error: ${submitResponse.status} - ${errorText}`);
       }
 
-      const data = await response.json();
+      const responseData = await submitResponse.json();
+      console.log("Image-to-video submit response:", JSON.stringify(responseData, null, 2));
 
-      if (data.status === "COMPLETED" || data.video_url) {
+      // Handle response - check if it's wrapped in 'data' (SDK format) or direct
+      const data = responseData.data || responseData;
+
+      // Check if we have a video URL immediately (synchronous response)
+      let videoUrl: string | null = null;
+      if (data.video?.url) {
+        videoUrl = data.video.url;
+      } else if (data.data?.video?.url) {
+        videoUrl = data.data.video.url;
+      } else if (data.video_url) {
+        videoUrl = data.video_url;
+      } else if (data.output?.video?.url) {
+        videoUrl = data.output.video.url;
+      }
+
+      // Get request ID from response
+      const requestId = responseData.request_id || data.request_id || responseData.requestId || data.requestId || data.id || `sync-${Date.now()}`;
+
+      // If we have a video URL immediately, return completed response
+      if (videoUrl) {
+        console.log("Image-to-video generation completed synchronously, videoUrl:", videoUrl);
         return {
-          requestId: data.request_id || data.id,
+          requestId: requestId,
           status: "completed",
-          videoUrl: data.video_url || data.video,
+          videoUrl: videoUrl,
           isCompleted: true,
         };
-      } else if (data.request_id) {
+      }
+
+      // Check if there's a request_id for async polling
+      if (requestId && !requestId.startsWith("sync-")) {
+        console.log("Image-to-video request submitted, requestId:", requestId);
         return {
-          requestId: data.request_id,
+          requestId: requestId,
           status: "processing",
           videoUrl: null,
           isCompleted: false,
         };
-      } else {
-        throw new Error("Unexpected response format from fal.ai");
       }
+
+      // If no request ID and no video URL, it's an error
+      console.error("Unexpected response format:", JSON.stringify(responseData, null, 2));
+      throw new Error(`Unexpected response format from fal.ai: no video URL or request_id found`);
     } catch (error: any) {
-      console.error("fal.ai video generation error:", error);
+      console.error("fal.ai image-to-video generation error:", error);
       throw new Error(`Failed to generate video: ${error.message}`);
     }
   },

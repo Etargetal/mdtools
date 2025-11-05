@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Image, Package, Menu, Video, FolderOpen, Wand2, FolderPlus, X } from "lucide-react";
+import { LayoutDashboard, Image, Package, Menu, Video, FolderOpen, Wand2, FolderPlus, X, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -13,6 +13,7 @@ const navigation = [
     { name: "Product Image", href: "/generator/admin/product-image", icon: Package },
     { name: "Menu Generator", href: "/generator/admin/menu", icon: Menu },
     { name: "Video Generator", href: "/generator/admin/video", icon: Video },
+    { name: "Image to Video", href: "/generator/admin/image-to-video", icon: Film },
     { name: "Gallery", href: "/generator/admin/gallery", icon: FolderOpen },
     { name: "Collections", href: "/generator/admin/collections", icon: FolderPlus },
 ];
