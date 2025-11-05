@@ -31,6 +31,13 @@ const VIDEO_MODELS = [
         defaultDuration: "5" as const,
     },
     {
+        value: "fal-ai/kling-video/v2.5-turbo/pro/text-to-video",
+        label: "Kling v2.5",
+        description: "Top-tier text-to-video with motion fluidity and cinematic visuals (5-10s)",
+        defaultAspectRatio: "16:9" as const,
+        defaultDuration: "5" as const,
+    },
+    {
         value: "fal-ai/sora-2/text-to-video",
         label: "Sora 2",
         description: "OpenAI's state-of-the-art video model (720p, 4-12s)",
@@ -75,6 +82,12 @@ export default function VideoGenerationPage() {
     const [enhancePrompt, setEnhancePrompt] = useState(true);
     const [autoFix, setAutoFix] = useState(true);
     const [generateAudio, setGenerateAudio] = useState(true);
+
+    // Kling v2.5 specific
+    const [klingAspectRatio, setKlingAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
+    const [klingDuration, setKlingDuration] = useState<"5" | "10">("5");
+    const [cfgScale, setCfgScale] = useState<number>(0.5);
+    const [klingNegativePrompt, setKlingNegativePrompt] = useState("blur, distort, and low quality");
 
     const [seed, setSeed] = useState<number | undefined>(undefined);
     const [showAdvanced, setShowAdvanced] = useState(false);
@@ -220,15 +233,20 @@ export default function VideoGenerationPage() {
                 type: "text-to-video",
                 model: selectedModel,
                 prompt: prompt.trim(),
-                negativePrompt: negativePrompt.trim() || undefined,
+                negativePrompt: selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video"
+                    ? (klingNegativePrompt.trim() || undefined)
+                    : (negativePrompt.trim() || undefined),
                 duration: selectedModel === "fal-ai/veo3/fast"
                     ? Number(veoDuration.replace("s", ""))
                     : selectedModel === "fal-ai/sora-2/text-to-video"
                         ? Number(soraDuration)
-                        : Number(duration),
+                        : selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video"
+                            ? Number(klingDuration)
+                            : Number(duration),
             });
 
             // Generate video using selected model
+            console.log("Generating video with model:", selectedModel);
             const result = await generateVideoFromTextAction({
                 model: selectedModel,
                 prompt: prompt.trim(),
@@ -239,8 +257,13 @@ export default function VideoGenerationPage() {
                 negativePrompt: selectedModel === "fal-ai/wan-25-preview/text-to-video" ? (negativePrompt.trim() || undefined) : undefined,
                 audioUrl: selectedModel === "fal-ai/wan-25-preview/text-to-video" ? (audioUrl.trim() || undefined) : undefined,
                 enablePromptExpansion: selectedModel === "fal-ai/wan-25-preview/text-to-video" ? enablePromptExpansion : undefined,
-                seed: seed,
+                seed: selectedModel === "fal-ai/wan-25-preview/text-to-video" || selectedModel === "fal-ai/veo3/fast" ? seed : undefined,
                 enableSafetyChecker: selectedModel === "fal-ai/wan-25-preview/text-to-video" ? enableSafetyChecker : undefined,
+                // Kling v2.5 parameters
+                klingAspectRatio: selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video" ? klingAspectRatio : undefined,
+                klingDuration: selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video" ? klingDuration : undefined,
+                klingNegativePrompt: selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video" ? (klingNegativePrompt.trim() || undefined) : undefined,
+                cfgScale: selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video" ? cfgScale : undefined,
                 // Sora 2 parameters
                 soraAspectRatio: selectedModel === "fal-ai/sora-2/text-to-video" ? soraAspectRatio : undefined,
                 soraDuration: selectedModel === "fal-ai/sora-2/text-to-video" ? soraDuration : undefined,
@@ -363,6 +386,7 @@ export default function VideoGenerationPage() {
                                 <CardTitle>Prompt</CardTitle>
                                 <CardDescription>
                                     {selectedModel === "fal-ai/wan-25-preview/text-to-video" && "Supports Chinese and English, max 800 characters"}
+                                    {selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video" && "Describe the video you want to generate with cinematic detail"}
                                     {selectedModel === "fal-ai/sora-2/text-to-video" && "Describe the video you want to generate"}
                                     {selectedModel === "fal-ai/veo3/fast" && "Be descriptive and clear. Include subject, context, action, style, camera motion, composition, and ambiance"}
                                 </CardDescription>
@@ -399,6 +423,20 @@ export default function VideoGenerationPage() {
                                                 {negativePrompt.length}/500 characters
                                             </div>
                                         )}
+                                    </div>
+                                )}
+                                {selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video" && (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="kling-negative-prompt">Negative Prompt</Label>
+                                        <Input
+                                            id="kling-negative-prompt"
+                                            placeholder="blur, distort, and low quality"
+                                            value={klingNegativePrompt}
+                                            onChange={(e) => setKlingNegativePrompt(e.target.value)}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Default: "blur, distort, and low quality"
+                                        </p>
                                     </div>
                                 )}
                             </CardContent>
@@ -462,6 +500,59 @@ export default function VideoGenerationPage() {
                                         />
                                         <p className="text-xs text-muted-foreground">
                                             WAV or MP3 format, 3-30 seconds, up to 15MB
+                                        </p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Video Settings - Kling v2.5 */}
+                        {selectedModel === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video" && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Video Settings</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="kling-aspect-ratio">Aspect Ratio</Label>
+                                            <Select value={klingAspectRatio} onValueChange={(v) => setKlingAspectRatio(v as "16:9" | "9:16" | "1:1")}>
+                                                <SelectTrigger id="kling-aspect-ratio">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                                                    <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                                                    <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="kling-duration">Duration</Label>
+                                            <Select value={klingDuration} onValueChange={(v) => setKlingDuration(v as "5" | "10")}>
+                                                <SelectTrigger id="kling-duration">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="5">5 seconds</SelectItem>
+                                                    <SelectItem value="10">10 seconds</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="cfg-scale">CFG Scale: {cfgScale}</Label>
+                                        <Input
+                                            id="cfg-scale"
+                                            type="range"
+                                            min="0"
+                                            max="1"
+                                            step="0.1"
+                                            value={cfgScale}
+                                            onChange={(e) => setCfgScale(Number(e.target.value))}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            How closely the model should stick to your prompt (0-1). Default: 0.5
                                         </p>
                                     </div>
                                 </CardContent>

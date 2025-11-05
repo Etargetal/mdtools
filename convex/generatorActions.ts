@@ -251,15 +251,50 @@ export const pollGenerationStatus = action({
     }
 
     try {
-      // For WAN 2.5 and other queue-based models, check status first
-      // Try /queue/status first (for WAN 2.5)
-      let endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/status`;
-      let response = await fetch(`${endpoint}?request_id=${args.requestId}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Key ${FAL_API_KEY}`,
-        },
-      });
+      // Video models use queue.fal.run for status polling
+      // Check if this is a video model (contains "video" in the model path)
+      const isVideoModel = args.model.includes("/video") || args.model.includes("text-to-video");
+
+      // For video models, use the /requests/{id} endpoint format
+      // This seems to be the correct format based on fal.ai queue API
+      let endpoint: string;
+      let response: Response;
+
+      if (isVideoModel) {
+        // Try queue.fal.run with /requests/{id} format first
+        endpoint = `https://queue.fal.run/${args.model}/requests/${args.requestId}`;
+        console.log("Polling video model status URL:", endpoint);
+        console.log("Model:", args.model);
+        console.log("Request ID:", args.requestId);
+
+        response = await fetch(endpoint, {
+          method: "GET",
+          headers: {
+            Authorization: `Key ${FAL_API_KEY}`,
+          },
+        });
+
+        // If that fails, try without model path (request ID might be globally unique)
+        if (!response.ok && response.status === 404) {
+          endpoint = `https://queue.fal.run/requests/${args.requestId}`;
+          console.log("Trying alternative endpoint:", endpoint);
+          response = await fetch(endpoint, {
+            method: "GET",
+            headers: {
+              Authorization: `Key ${FAL_API_KEY}`,
+            },
+          });
+        }
+      } else {
+        // For image models, use the standard /queue/status format
+        endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/status`;
+        response = await fetch(`${endpoint}?request_id=${args.requestId}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Key ${FAL_API_KEY}`,
+          },
+        });
+      }
 
       let statusData: any = null;
       let usingResultEndpoint = false;
@@ -271,14 +306,24 @@ export const pollGenerationStatus = action({
 
         // If status is completed, fetch the result
         if (status === "completed" || status === "COMPLETED") {
-          endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/result`;
-          response = await fetch(`${endpoint}?request_id=${args.requestId}`, {
-            method: "GET",
-            headers: {
-              Authorization: `Key ${FAL_API_KEY}`,
-            },
-          });
-          usingResultEndpoint = true;
+          // For video models, result might be in the same response
+          // Otherwise, try to fetch from result endpoint
+          if (isVideoModel && statusData.output) {
+            // Result is already in the status response
+            usingResultEndpoint = false;
+          } else {
+            // Try fetching result endpoint
+            const resultEndpoint = isVideoModel
+              ? `https://queue.fal.run/${args.model}/requests/${args.requestId}`
+              : `${FAL_API_BASE_URL}/${args.model}/queue/result?request_id=${args.requestId}`;
+            response = await fetch(resultEndpoint, {
+              method: "GET",
+              headers: {
+                Authorization: `Key ${FAL_API_KEY}`,
+              },
+            });
+            usingResultEndpoint = true;
+          }
         } else {
           // Status is still IN_PROGRESS or PENDING, use status data
           const data = statusData;
@@ -298,8 +343,12 @@ export const pollGenerationStatus = action({
         }
       } else {
         // If status check fails, try /queue/result (for completed requests)
-        endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/result`;
-        response = await fetch(`${endpoint}?request_id=${args.requestId}`, {
+        if (isVideoModel) {
+          endpoint = `https://queue.fal.run/${args.model}/requests/${args.requestId}`;
+        } else {
+          endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/result`;
+        }
+        response = await fetch(isVideoModel ? endpoint : `${endpoint}?request_id=${args.requestId}`, {
           method: "GET",
           headers: {
             Authorization: `Key ${FAL_API_KEY}`,
@@ -308,19 +357,45 @@ export const pollGenerationStatus = action({
         usingResultEndpoint = true;
       }
 
-      // If that fails, try /requests/{id} format (legacy)
-      if (!response.ok && response.status === 404) {
-        endpoint = `${FAL_API_BASE_URL}/${args.model}/requests/${args.requestId}`;
+      // If all primary methods fail, try alternative endpoint formats
+      if (!response.ok && response.status === 404 && isVideoModel) {
+        // Try /status endpoint format as fallback
+        endpoint = `https://queue.fal.run/${args.model}/status?request_id=${args.requestId}`;
+        console.log("Trying fallback endpoint:", endpoint);
         response = await fetch(endpoint, {
           method: "GET",
           headers: {
             Authorization: `Key ${FAL_API_KEY}`,
           },
         });
+
+        if (response.ok) {
+          statusData = await response.json();
+          const status = statusData.status?.toLowerCase();
+          if (status === "completed" || status === "COMPLETED") {
+            // Try result endpoint
+            endpoint = `https://queue.fal.run/${args.model}/result?request_id=${args.requestId}`;
+            response = await fetch(endpoint, {
+              method: "GET",
+              headers: {
+                Authorization: `Key ${FAL_API_KEY}`,
+              },
+            });
+            usingResultEndpoint = true;
+          }
+        }
       }
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error("Polling error details:", {
+          status: response.status,
+          statusText: response.statusText,
+          url: endpoint,
+          model: args.model,
+          requestId: args.requestId,
+          errorText: errorText,
+        });
         throw new Error(`fal.ai API error: ${response.status} - ${errorText}`);
       }
 
@@ -385,6 +460,20 @@ export const pollGenerationStatus = action({
         videoUrl = data.video_url;
       } else if (data.data?.video_url) {
         videoUrl = data.data.video_url;
+      } else if (data.output?.video?.url) {
+        videoUrl = data.output.video.url;
+      } else if (data.output?.video_url) {
+        videoUrl = data.output.video_url;
+      }
+
+      // Check if images array contains video URLs (some APIs return videos as "images")
+      if (!videoUrl && images.length > 0) {
+        const videoInImages = images.find((url: string) =>
+          url && (url.includes('.mp4') || url.includes('video') || url.includes('.webm') || url.includes('fal.ai'))
+        );
+        if (videoInImages) {
+          videoUrl = videoInImages;
+        }
       }
 
       const status = data.status?.toLowerCase() || "processing";
@@ -493,7 +582,7 @@ export const generateVideoFromImage = action({
 
 /**
  * Generate video from text using fal.ai video models
- * Supports: WAN 2.5, Sora 2, Veo 3 Fast
+ * Supports: WAN 2.5, Kling v2.5, Sora 2, Veo 3 Fast
  */
 export const generateVideoFromText = action({
   args: {
@@ -508,6 +597,11 @@ export const generateVideoFromText = action({
     enablePromptExpansion: v.optional(v.boolean()),
     seed: v.optional(v.number()),
     enableSafetyChecker: v.optional(v.boolean()),
+    // Kling v2.5 parameters
+    klingAspectRatio: v.optional(v.union(v.literal("16:9"), v.literal("9:16"), v.literal("1:1"))),
+    klingDuration: v.optional(v.union(v.literal("5"), v.literal("10"))),
+    klingNegativePrompt: v.optional(v.string()),
+    cfgScale: v.optional(v.number()),
     // Sora 2 parameters
     soraAspectRatio: v.optional(v.union(v.literal("16:9"), v.literal("9:16"))),
     soraDuration: v.optional(v.union(v.literal("4"), v.literal("8"), v.literal("12"))),
@@ -547,6 +641,12 @@ export const generateVideoFromText = action({
         requestBody.seed = args.seed;
       }
       requestBody.enable_safety_checker = args.enableSafetyChecker !== undefined ? args.enableSafetyChecker : true;
+    } else if (model === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video") {
+      // Kling v2.5 parameters
+      requestBody.aspect_ratio = args.klingAspectRatio || "16:9";
+      requestBody.duration = args.klingDuration || "5";
+      requestBody.negative_prompt = args.klingNegativePrompt || "blur, distort, and low quality";
+      requestBody.cfg_scale = args.cfgScale !== undefined ? args.cfgScale : 0.5;
     } else if (model === "fal-ai/sora-2/text-to-video") {
       // Sora 2 parameters
       requestBody.aspect_ratio = args.soraAspectRatio || "16:9";
@@ -571,58 +671,22 @@ export const generateVideoFromText = action({
     }
 
     try {
-      // All models use queue-based API
-      // Based on fal.ai docs, the endpoint is: https://queue.fal.run/{model}/submit
-      // Or try: https://fal.run/{model}/queue/submit
-
-      // Try queue API endpoint first (for async models)
-      // Format: https://queue.fal.run/{model}/submit
-      let submitUrl = `https://queue.fal.run/${model}/submit`;
+      // Video models use direct endpoint format (like image generation)
+      // The endpoint format is: https://fal.run/{model}
+      const submitUrl = `${FAL_API_BASE_URL}/${model}`;
 
       console.log("Submitting video generation request to:", submitUrl);
       console.log("Model:", model);
-      console.log("Request body:", JSON.stringify({ input: requestBody }, null, 2));
+      console.log("Request body:", JSON.stringify(requestBody, null, 2));
 
-      let submitResponse = await fetch(submitUrl, {
+      const submitResponse = await fetch(submitUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Key ${FAL_API_KEY}`,
         },
-        body: JSON.stringify({
-          input: requestBody,
-        }),
+        body: JSON.stringify(requestBody),
       });
-
-      // If queue.fal.run doesn't work, try fal.run with /queue/submit
-      if (!submitResponse.ok && submitResponse.status === 404) {
-        console.log("Trying alternative endpoint: fal.run with /queue/submit");
-        submitUrl = `${FAL_API_BASE_URL}/${model}/queue/submit`;
-        submitResponse = await fetch(submitUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Key ${FAL_API_KEY}`,
-          },
-          body: JSON.stringify({
-            input: requestBody,
-          }),
-        });
-      }
-
-      // If that fails, try direct endpoint (like image generation)
-      if (!submitResponse.ok && submitResponse.status === 404) {
-        console.log("Trying direct endpoint format (like image generation)...");
-        submitUrl = `${FAL_API_BASE_URL}/${model}`;
-        submitResponse = await fetch(submitUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Key ${FAL_API_KEY}`,
-          },
-          body: JSON.stringify(requestBody), // Direct body, not wrapped in "input"
-        });
-      }
 
       if (!submitResponse.ok) {
         const errorText = await submitResponse.text();
@@ -630,162 +694,70 @@ export const generateVideoFromText = action({
         throw new Error(`fal.ai API error: ${submitResponse.status} - ${errorText}`);
       }
 
-      const submitData = await submitResponse.json();
-      const requestId = submitData.request_id || submitData.requestId;
+      const responseData = await submitResponse.json();
+      console.log("Video generation submit response:", JSON.stringify(responseData, null, 2));
 
-      if (!requestId) {
-        console.error("Submit response:", submitData);
-        throw new Error("No request_id returned from fal.ai");
+      // Handle response - check if it's wrapped in 'data' (SDK format) or direct
+      const data = responseData.data || responseData;
+
+      // Check if we have a video URL immediately (synchronous response)
+      let videoUrl: string | null = null;
+      if (data.video?.url) {
+        videoUrl = data.video.url;
+      } else if (data.data?.video?.url) {
+        videoUrl = data.data.video.url;
+      } else if (data.video_url) {
+        videoUrl = data.video_url;
+      } else if (data.data?.video_url) {
+        videoUrl = data.data.video_url;
+      } else if (data.output?.video?.url) {
+        videoUrl = data.output.video.url;
+      } else if (data.output?.video_url) {
+        videoUrl = data.output.video_url;
       }
 
-      console.log("Video generation request submitted, requestId:", requestId);
-
-      // Poll for completion
-      let attempts = 0;
-      const maxAttempts = 120; // 10 minutes max (5 seconds * 120 = 10 minutes)
-
-      while (attempts < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds between polls
-
-        // Try status endpoint - fal.ai queue API might use different formats
-        // Format 1: POST with request_id in body
-        let statusUrl = `https://queue.fal.run/${model}/status`;
-        let statusResponse = await fetch(statusUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Key ${FAL_API_KEY}`,
-          },
-          body: JSON.stringify({
-            request_id: requestId,
-          }),
-        });
-
-        // Format 2: GET with request_id as query parameter
-        if (!statusResponse.ok && (statusResponse.status === 405 || statusResponse.status === 404)) {
-          statusUrl = `https://queue.fal.run/${model}/status?request_id=${requestId}`;
-          statusResponse = await fetch(statusUrl, {
-            method: "GET",
-            headers: {
-              Authorization: `Key ${FAL_API_KEY}`,
-            },
-          });
+      // Also check if images array contains video URLs (some APIs return videos as "images")
+      if (!videoUrl && data.images && Array.isArray(data.images)) {
+        const videoInImages = data.images.find((url: string) =>
+          url && (url.includes('.mp4') || url.includes('video') || url.includes('.webm'))
+        );
+        if (videoInImages) {
+          videoUrl = typeof videoInImages === 'string' ? videoInImages : videoInImages.url;
         }
-
-        // Format 3: Request ID in URL path
-        if (!statusResponse.ok && (statusResponse.status === 405 || statusResponse.status === 404)) {
-          statusUrl = `https://queue.fal.run/${model}/requests/${requestId}/status`;
-          statusResponse = await fetch(statusUrl, {
-            method: "GET",
-            headers: {
-              Authorization: `Key ${FAL_API_KEY}`,
-            },
-          });
-        }
-
-        // Format 4: Try fal.run with /queue/status
-        if (!statusResponse.ok && (statusResponse.status === 405 || statusResponse.status === 404)) {
-          statusUrl = `https://fal.run/${model}/queue/status?request_id=${requestId}`;
-          statusResponse = await fetch(statusUrl, {
-            method: "GET",
-            headers: {
-              Authorization: `Key ${FAL_API_KEY}`,
-            },
-          });
-        }
-
-        if (!statusResponse.ok) {
-          const errorText = await statusResponse.text();
-          throw new Error(`fal.ai status check error: ${statusResponse.status} - ${errorText}`);
-        }
-
-        const statusData = await statusResponse.json();
-        const status = statusData.status?.toLowerCase();
-
-        if (status === "completed" || status === "COMPLETED") {
-          // Get the result - try multiple formats
-          // Format 1: POST with request_id in body
-          let resultUrl = `https://queue.fal.run/${model}/result`;
-          let resultResponse = await fetch(resultUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Key ${FAL_API_KEY}`,
-            },
-            body: JSON.stringify({
-              request_id: requestId,
-            }),
-          });
-
-          // Format 2: GET with request_id as query parameter
-          if (!resultResponse.ok && (resultResponse.status === 405 || resultResponse.status === 404)) {
-            resultUrl = `https://queue.fal.run/${model}/result?request_id=${requestId}`;
-            resultResponse = await fetch(resultUrl, {
-              method: "GET",
-              headers: {
-                Authorization: `Key ${FAL_API_KEY}`,
-              },
-            });
-          }
-
-          // Format 3: Request ID in URL path
-          if (!resultResponse.ok && (resultResponse.status === 405 || resultResponse.status === 404)) {
-            resultUrl = `https://queue.fal.run/${model}/requests/${requestId}/result`;
-            resultResponse = await fetch(resultUrl, {
-              method: "GET",
-              headers: {
-                Authorization: `Key ${FAL_API_KEY}`,
-              },
-            });
-          }
-
-          // Format 4: Try fal.run with /queue/result
-          if (!resultResponse.ok && (resultResponse.status === 405 || resultResponse.status === 404)) {
-            resultUrl = `https://fal.run/${model}/queue/result?request_id=${requestId}`;
-            resultResponse = await fetch(resultUrl, {
-              method: "GET",
-              headers: {
-                Authorization: `Key ${FAL_API_KEY}`,
-              },
-            });
-          }
-
-          if (!resultResponse.ok) {
-            const errorText = await resultResponse.text();
-            throw new Error(`fal.ai result fetch error: ${resultResponse.status} - ${errorText}`);
-          }
-
-          const resultData = await resultResponse.json();
-          const videoUrl = resultData.video?.url || resultData.data?.video?.url;
-
-          if (videoUrl) {
-            return {
-              requestId: requestId,
-              status: "completed",
-              videoUrl: videoUrl,
-              isCompleted: true,
-              seed: resultData.seed || resultData.data?.seed,
-              actualPrompt: resultData.actual_prompt || resultData.data?.actual_prompt,
-            };
-          } else {
-            throw new Error("No video URL in result");
-          }
-        } else if (status === "failed" || status === "FAILED" || status === "error") {
-          throw new Error(statusData.error || "Video generation failed");
-        }
-
-        attempts++;
       }
 
-      // If we get here, it's still processing - return request ID for async polling
-      return {
-        requestId: requestId,
-        status: "processing",
-        videoUrl: null,
-        isCompleted: false,
-      };
+      // Get request ID from response
+      const requestId = responseData.request_id || data.request_id || responseData.requestId || data.requestId || data.id || `sync-${Date.now()}`;
+
+      // If we have a video URL immediately, return completed response
+      if (videoUrl) {
+        console.log("Video generation completed synchronously, videoUrl:", videoUrl);
+        return {
+          requestId: requestId,
+          status: "completed",
+          videoUrl: videoUrl,
+          isCompleted: true,
+          seed: data.seed || data.data?.seed,
+          actualPrompt: data.actual_prompt || data.data?.actual_prompt,
+        };
+      }
+
+      // Check if there's a request_id for async polling
+      if (requestId && !requestId.startsWith("sync-")) {
+        console.log("Video generation request submitted, requestId:", requestId);
+        return {
+          requestId: requestId,
+          status: "processing",
+          videoUrl: null,
+          isCompleted: false,
+        };
+      }
+
+      // If no request ID and no video URL, it's an error
+      console.error("Unexpected response format:", JSON.stringify(responseData, null, 2));
+      throw new Error(`Unexpected response format from fal.ai: no video URL or request_id found`);
     } catch (error: any) {
-      console.error("fal.ai WAN 2.5 text-to-video error:", error);
+      console.error("fal.ai video generation error:", error);
       throw new Error(`Failed to generate video: ${error.message}`);
     }
   },
