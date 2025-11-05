@@ -27,7 +27,7 @@ const VIDEO_MODELS = [
         label: "WAN 2.5",
         description: "Best visual quality and motion stability (480p, 720p, 1080p, 5-10s)",
         defaultAspectRatio: "16:9" as const,
-        defaultResolution: "1080p" as const,
+        defaultResolution: "480p" as const,
         defaultDuration: "5" as const,
     },
     {
@@ -51,7 +51,7 @@ const VIDEO_MODELS = [
         description: "Google's Veo 3 Fast model (720p/1080p, 4-8s)",
         defaultAspectRatio: "16:9" as const,
         defaultResolution: "720p" as const,
-        defaultDuration: "8s" as const,
+        defaultDuration: "4s" as const,
     },
 ];
 
@@ -65,11 +65,12 @@ export default function VideoGenerationPage() {
 
     // WAN 2.5 specific
     const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
-    const [resolution, setResolution] = useState<"480p" | "720p" | "1080p">("1080p");
+    const [resolution, setResolution] = useState<"480p" | "720p" | "1080p">("480p");
     const [duration, setDuration] = useState<"5" | "10">("5");
     const [audioUrl, setAudioUrl] = useState("");
-    const [enablePromptExpansion, setEnablePromptExpansion] = useState(true);
-    const [enableSafetyChecker, setEnableSafetyChecker] = useState(true);
+    // Prompt expansion is always enabled, safety checker is always disabled
+    const enablePromptExpansion = true;
+    const enableSafetyChecker = false;
 
     // Sora 2 specific
     const [soraAspectRatio, setSoraAspectRatio] = useState<"16:9" | "9:16">("16:9");
@@ -78,7 +79,7 @@ export default function VideoGenerationPage() {
     // Veo 3 Fast specific
     const [veoAspectRatio, setVeoAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
     const [veoResolution, setVeoResolution] = useState<"720p" | "1080p">("720p");
-    const [veoDuration, setVeoDuration] = useState<"4s" | "6s" | "8s">("8s");
+    const [veoDuration, setVeoDuration] = useState<"4s" | "6s" | "8s">("4s");
     const [enhancePrompt, setEnhancePrompt] = useState(true);
     const [autoFix, setAutoFix] = useState(true);
     const [generateAudio, setGenerateAudio] = useState(true);
@@ -89,8 +90,7 @@ export default function VideoGenerationPage() {
     const [cfgScale, setCfgScale] = useState<number>(0.5);
     const [klingNegativePrompt, setKlingNegativePrompt] = useState("blur, distort, and low quality");
 
-    const [seed, setSeed] = useState<number | undefined>(undefined);
-    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [seed] = useState<number | undefined>(undefined);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const [currentGenerationId, setCurrentGenerationId] = useState<Id<"videoGenerations"> | null>(null);
@@ -687,57 +687,6 @@ export default function VideoGenerationPage() {
                                                 onCheckedChange={setGenerateAudio}
                                             />
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        {/* Advanced Settings - WAN 2.5 only */}
-                        {selectedModel === "fal-ai/wan-25-preview/text-to-video" && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Advanced Settings</CardTitle>
-                                    <CardDescription>Optional settings for fine-tuning</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-0.5">
-                                            <Label htmlFor="enable-prompt-expansion">Enable Prompt Expansion</Label>
-                                            <p className="text-xs text-muted-foreground">
-                                                Use LLM to rewrite and improve prompts (increases processing time)
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            id="enable-prompt-expansion"
-                                            checked={enablePromptExpansion}
-                                            onCheckedChange={setEnablePromptExpansion}
-                                        />
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-0.5">
-                                            <Label htmlFor="enable-safety-checker">Enable Safety Checker</Label>
-                                            <p className="text-xs text-muted-foreground">
-                                                Filter inappropriate content
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            id="enable-safety-checker"
-                                            checked={enableSafetyChecker}
-                                            onCheckedChange={setEnableSafetyChecker}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="seed">Seed (Optional)</Label>
-                                        <Input
-                                            id="seed"
-                                            type="number"
-                                            placeholder="Leave empty for random"
-                                            value={seed || ""}
-                                            onChange={(e) => setSeed(e.target.value ? Number(e.target.value) : undefined)}
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            Random seed for reproducibility
-                                        </p>
                                     </div>
                                 </CardContent>
                             </Card>

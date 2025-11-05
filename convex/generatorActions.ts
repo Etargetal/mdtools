@@ -628,7 +628,7 @@ export const generateVideoFromText = action({
     if (model === "fal-ai/wan-25-preview/text-to-video") {
       // WAN 2.5 parameters
       requestBody.aspect_ratio = args.aspectRatio || "16:9";
-      requestBody.resolution = args.resolution || "1080p";
+      requestBody.resolution = args.resolution || "480p";
       requestBody.duration = args.duration || "5";
       if (args.negativePrompt) {
         requestBody.negative_prompt = args.negativePrompt;
@@ -636,11 +636,12 @@ export const generateVideoFromText = action({
       if (args.audioUrl) {
         requestBody.audio_url = args.audioUrl;
       }
-      requestBody.enable_prompt_expansion = args.enablePromptExpansion !== undefined ? args.enablePromptExpansion : true;
+      // Prompt expansion is always enabled, safety checker is always disabled
+      requestBody.enable_prompt_expansion = true;
       if (args.seed !== undefined) {
         requestBody.seed = args.seed;
       }
-      requestBody.enable_safety_checker = args.enableSafetyChecker !== undefined ? args.enableSafetyChecker : true;
+      requestBody.enable_safety_checker = false;
     } else if (model === "fal-ai/kling-video/v2.5-turbo/pro/text-to-video") {
       // Kling v2.5 parameters
       requestBody.aspect_ratio = args.klingAspectRatio || "16:9";
@@ -656,7 +657,7 @@ export const generateVideoFromText = action({
       // Veo 3 Fast parameters
       requestBody.aspect_ratio = args.veoAspectRatio || "16:9";
       requestBody.resolution = args.veoResolution || "720p";
-      requestBody.duration = args.veoDuration || "8s";
+      requestBody.duration = args.veoDuration || "4s";
       if (args.veoNegativePrompt) {
         requestBody.negative_prompt = args.veoNegativePrompt;
       }
