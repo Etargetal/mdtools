@@ -37,10 +37,10 @@ export const generateImage = action({
     const getAspectRatio = (width: number, height: number): string => {
       const ratio = width / height;
       if (Math.abs(ratio - 1.0) < 0.1) return "1:1";
-      if (Math.abs(ratio - 16/9) < 0.1) return "16:9";
-      if (Math.abs(ratio - 9/16) < 0.1) return "9:16";
-      if (Math.abs(ratio - 3/4) < 0.1) return "3:4";
-      if (Math.abs(ratio - 4/3) < 0.1) return "4:3";
+      if (Math.abs(ratio - 16 / 9) < 0.1) return "16:9";
+      if (Math.abs(ratio - 9 / 16) < 0.1) return "9:16";
+      if (Math.abs(ratio - 3 / 4) < 0.1) return "3:4";
+      if (Math.abs(ratio - 4 / 3) < 0.1) return "4:3";
       // Default to closest match
       if (ratio > 1.3) return "16:9";
       if (ratio < 0.7) return "9:16";
@@ -164,7 +164,7 @@ export const generateImage = action({
         images = extractImageUrls([data.image]);
         console.log("Extracted from data.image:", images);
       }
-      
+
       // Check if output is directly an object (not in an array)
       if (images.length === 0 && data.output && typeof data.output === "object" && !Array.isArray(data.output)) {
         images = extractImageUrls([data.output]);
@@ -187,7 +187,7 @@ export const generateImage = action({
           isCompleted: true,
         };
       }
-      
+
       // No images found - check if we need to poll
       if (data.request_id || responseData.requestId) {
         // Asynchronous response - need to poll
@@ -199,7 +199,7 @@ export const generateImage = action({
           isCompleted: false,
         };
       }
-      
+
       // Check status field
       if (data.status === "COMPLETED" || data.status === "completed") {
         // Status says completed but no images found - might need polling
@@ -214,7 +214,7 @@ export const generateImage = action({
         }
         throw new Error("Generation completed but no images found in response");
       }
-      
+
       // Log the full response for debugging
       console.error("Unexpected response format:", JSON.stringify(responseData, null, 2));
       throw new Error(`Unexpected response format from fal.ai: ${JSON.stringify(responseData)}`);
@@ -251,9 +251,9 @@ export const pollGenerationStatus = action({
     }
 
     try {
-      // Try multiple possible endpoint formats
-      // First try /queue/result (preferred for completed requests)
-      let endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/result`;
+      // For WAN 2.5 and other queue-based models, check status first
+      // Try /queue/status first (for WAN 2.5)
+      let endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/status`;
       let response = await fetch(`${endpoint}?request_id=${args.requestId}`, {
         method: "GET",
         headers: {
@@ -261,7 +261,54 @@ export const pollGenerationStatus = action({
         },
       });
 
-      // If that fails, try /requests/{id} format
+      let statusData: any = null;
+      let usingResultEndpoint = false;
+
+      // If status check is successful, parse the status
+      if (response.ok) {
+        statusData = await response.json();
+        const status = statusData.status?.toLowerCase();
+
+        // If status is completed, fetch the result
+        if (status === "completed" || status === "COMPLETED") {
+          endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/result`;
+          response = await fetch(`${endpoint}?request_id=${args.requestId}`, {
+            method: "GET",
+            headers: {
+              Authorization: `Key ${FAL_API_KEY}`,
+            },
+          });
+          usingResultEndpoint = true;
+        } else {
+          // Status is still IN_PROGRESS or PENDING, use status data
+          const data = statusData;
+          const status = data.status?.toLowerCase() || "processing";
+          const isCompleted = status === "completed" || status === "COMPLETED";
+          const isFailed = status === "failed" || status === "FAILED" || status === "error";
+
+          return {
+            requestId: args.requestId,
+            status: status,
+            images: [],
+            videoUrl: null,
+            error: data.error || null,
+            isCompleted: isCompleted,
+            isFailed: isFailed,
+          };
+        }
+      } else {
+        // If status check fails, try /queue/result (for completed requests)
+        endpoint = `${FAL_API_BASE_URL}/${args.model}/queue/result`;
+        response = await fetch(`${endpoint}?request_id=${args.requestId}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Key ${FAL_API_KEY}`,
+          },
+        });
+        usingResultEndpoint = true;
+      }
+
+      // If that fails, try /requests/{id} format (legacy)
       if (!response.ok && response.status === 404) {
         endpoint = `${FAL_API_BASE_URL}/${args.model}/requests/${args.requestId}`;
         response = await fetch(endpoint, {
@@ -281,7 +328,8 @@ export const pollGenerationStatus = action({
       console.log("fal.ai pollGenerationStatus response:", JSON.stringify(responseData, null, 2));
 
       // Handle response - check if it's wrapped in 'data' (SDK format) or direct
-      const data = responseData.data || responseData;
+      // If we got status data first, use it; otherwise use response data
+      const data = usingResultEndpoint ? (responseData.data || responseData) : (statusData || responseData.data || responseData);
 
       // Helper function to extract URLs from various response formats
       const extractImageUrls = (images: any): string[] => {
@@ -324,18 +372,31 @@ export const pollGenerationStatus = action({
         images = extractImageUrls([data.image]);
         console.log("Poll: Extracted from data.image:", images);
       }
-      
+
       console.log("Poll: Final extracted images array:", images);
 
+      // Also check for video URLs (for WAN 2.5 and other video models)
+      let videoUrl: string | null = null;
+      if (data.video?.url) {
+        videoUrl = data.video.url;
+      } else if (data.data?.video?.url) {
+        videoUrl = data.data.video.url;
+      } else if (data.video_url) {
+        videoUrl = data.video_url;
+      } else if (data.data?.video_url) {
+        videoUrl = data.data.video_url;
+      }
+
       const status = data.status?.toLowerCase() || "processing";
-      
-      // Check if completed based on status or if we have images
-      const isCompleted = status === "completed" || status === "COMPLETED" || images.length > 0;
+
+      // Check if completed based on status or if we have images/videos
+      const isCompleted = status === "completed" || status === "COMPLETED" || images.length > 0 || videoUrl !== null;
       const isFailed = status === "failed" || status === "FAILED" || status === "error";
-      
+
       console.log("Poll result:", {
         status,
         imagesCount: images.length,
+        videoUrl,
         isCompleted,
         isFailed,
       });
@@ -344,6 +405,7 @@ export const pollGenerationStatus = action({
         requestId: args.requestId,
         status: status,
         images: images,
+        videoUrl: videoUrl,
         error: data.error || null,
         isCompleted: isCompleted,
         isFailed: isFailed,
@@ -430,84 +492,300 @@ export const generateVideoFromImage = action({
 });
 
 /**
- * Generate video from text using fal.ai
+ * Generate video from text using fal.ai video models
+ * Supports: WAN 2.5, Sora 2, Veo 3 Fast
  */
 export const generateVideoFromText = action({
   args: {
     model: v.string(),
     prompt: v.string(),
+    // WAN 2.5 parameters
+    aspectRatio: v.optional(v.union(v.literal("16:9"), v.literal("9:16"), v.literal("1:1"))),
+    resolution: v.optional(v.union(v.literal("480p"), v.literal("720p"), v.literal("1080p"))),
+    duration: v.optional(v.union(v.literal("5"), v.literal("10"))),
     negativePrompt: v.optional(v.string()),
-    width: v.optional(v.number()),
-    height: v.optional(v.number()),
-    duration: v.optional(v.number()),
-    numFrames: v.optional(v.number()),
-    fps: v.optional(v.number()),
+    audioUrl: v.optional(v.string()),
+    enablePromptExpansion: v.optional(v.boolean()),
     seed: v.optional(v.number()),
+    enableSafetyChecker: v.optional(v.boolean()),
+    // Sora 2 parameters
+    soraAspectRatio: v.optional(v.union(v.literal("16:9"), v.literal("9:16"))),
+    soraDuration: v.optional(v.union(v.literal("4"), v.literal("8"), v.literal("12"))),
+    // Veo 3 Fast parameters
+    veoAspectRatio: v.optional(v.union(v.literal("16:9"), v.literal("9:16"), v.literal("1:1"))),
+    veoResolution: v.optional(v.union(v.literal("720p"), v.literal("1080p"))),
+    veoDuration: v.optional(v.union(v.literal("4s"), v.literal("6s"), v.literal("8s"))),
+    veoNegativePrompt: v.optional(v.string()),
+    enhancePrompt: v.optional(v.boolean()),
+    autoFix: v.optional(v.boolean()),
+    generateAudio: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     if (!FAL_API_KEY) {
       throw new Error("FAL_API_KEY is not configured");
     }
 
-    const requestBody: any = {
+    const model = args.model;
+    let requestBody: any = {
       prompt: args.prompt,
     };
 
-    if (args.negativePrompt) {
-      requestBody.negative_prompt = args.negativePrompt;
-    }
-    if (args.width && args.height) {
-      requestBody.image_size = `${args.width}x${args.height}`;
-    }
-    if (args.duration) {
-      requestBody.duration = args.duration;
-    }
-    if (args.numFrames) {
-      requestBody.num_frames = args.numFrames;
-    }
-    if (args.fps) {
-      requestBody.fps = args.fps;
-    }
-    if (args.seed !== undefined) {
-      requestBody.seed = args.seed;
+    // Build request body based on model
+    if (model === "fal-ai/wan-25-preview/text-to-video") {
+      // WAN 2.5 parameters
+      requestBody.aspect_ratio = args.aspectRatio || "16:9";
+      requestBody.resolution = args.resolution || "1080p";
+      requestBody.duration = args.duration || "5";
+      if (args.negativePrompt) {
+        requestBody.negative_prompt = args.negativePrompt;
+      }
+      if (args.audioUrl) {
+        requestBody.audio_url = args.audioUrl;
+      }
+      requestBody.enable_prompt_expansion = args.enablePromptExpansion !== undefined ? args.enablePromptExpansion : true;
+      if (args.seed !== undefined) {
+        requestBody.seed = args.seed;
+      }
+      requestBody.enable_safety_checker = args.enableSafetyChecker !== undefined ? args.enableSafetyChecker : true;
+    } else if (model === "fal-ai/sora-2/text-to-video") {
+      // Sora 2 parameters
+      requestBody.aspect_ratio = args.soraAspectRatio || "16:9";
+      requestBody.duration = args.soraDuration ? Number(args.soraDuration) : 4;
+      requestBody.resolution = "720p"; // Sora 2 only supports 720p
+    } else if (model === "fal-ai/veo3/fast") {
+      // Veo 3 Fast parameters
+      requestBody.aspect_ratio = args.veoAspectRatio || "16:9";
+      requestBody.resolution = args.veoResolution || "720p";
+      requestBody.duration = args.veoDuration || "8s";
+      if (args.veoNegativePrompt) {
+        requestBody.negative_prompt = args.veoNegativePrompt;
+      }
+      requestBody.enhance_prompt = args.enhancePrompt !== undefined ? args.enhancePrompt : true;
+      requestBody.auto_fix = args.autoFix !== undefined ? args.autoFix : true;
+      requestBody.generate_audio = args.generateAudio !== undefined ? args.generateAudio : true;
+      if (args.seed !== undefined) {
+        requestBody.seed = args.seed;
+      }
+    } else {
+      throw new Error(`Unsupported model: ${model}`);
     }
 
     try {
-      const response = await fetch(`${FAL_API_BASE_URL}/${args.model}`, {
+      // All models use queue-based API
+      // Based on fal.ai docs, the endpoint is: https://queue.fal.run/{model}/submit
+      // Or try: https://fal.run/{model}/queue/submit
+
+      // Try queue API endpoint first (for async models)
+      // Format: https://queue.fal.run/{model}/submit
+      let submitUrl = `https://queue.fal.run/${model}/submit`;
+
+      console.log("Submitting video generation request to:", submitUrl);
+      console.log("Model:", model);
+      console.log("Request body:", JSON.stringify({ input: requestBody }, null, 2));
+
+      let submitResponse = await fetch(submitUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Key ${FAL_API_KEY}`,
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          input: requestBody,
+        }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`fal.ai API error: ${response.status} - ${errorText}`);
+      // If queue.fal.run doesn't work, try fal.run with /queue/submit
+      if (!submitResponse.ok && submitResponse.status === 404) {
+        console.log("Trying alternative endpoint: fal.run with /queue/submit");
+        submitUrl = `${FAL_API_BASE_URL}/${model}/queue/submit`;
+        submitResponse = await fetch(submitUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Key ${FAL_API_KEY}`,
+          },
+          body: JSON.stringify({
+            input: requestBody,
+          }),
+        });
       }
 
-      const data = await response.json();
-
-      if (data.status === "COMPLETED" || data.video_url) {
-        return {
-          requestId: data.request_id || data.id,
-          status: "completed",
-          videoUrl: data.video_url || data.video,
-          isCompleted: true,
-        };
-      } else if (data.request_id) {
-        return {
-          requestId: data.request_id,
-          status: "processing",
-          videoUrl: null,
-          isCompleted: false,
-        };
-      } else {
-        throw new Error("Unexpected response format from fal.ai");
+      // If that fails, try direct endpoint (like image generation)
+      if (!submitResponse.ok && submitResponse.status === 404) {
+        console.log("Trying direct endpoint format (like image generation)...");
+        submitUrl = `${FAL_API_BASE_URL}/${model}`;
+        submitResponse = await fetch(submitUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Key ${FAL_API_KEY}`,
+          },
+          body: JSON.stringify(requestBody), // Direct body, not wrapped in "input"
+        });
       }
+
+      if (!submitResponse.ok) {
+        const errorText = await submitResponse.text();
+        console.error("Submit error response:", errorText);
+        throw new Error(`fal.ai API error: ${submitResponse.status} - ${errorText}`);
+      }
+
+      const submitData = await submitResponse.json();
+      const requestId = submitData.request_id || submitData.requestId;
+
+      if (!requestId) {
+        console.error("Submit response:", submitData);
+        throw new Error("No request_id returned from fal.ai");
+      }
+
+      console.log("Video generation request submitted, requestId:", requestId);
+
+      // Poll for completion
+      let attempts = 0;
+      const maxAttempts = 120; // 10 minutes max (5 seconds * 120 = 10 minutes)
+
+      while (attempts < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds between polls
+
+        // Try status endpoint - fal.ai queue API might use different formats
+        // Format 1: POST with request_id in body
+        let statusUrl = `https://queue.fal.run/${model}/status`;
+        let statusResponse = await fetch(statusUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Key ${FAL_API_KEY}`,
+          },
+          body: JSON.stringify({
+            request_id: requestId,
+          }),
+        });
+
+        // Format 2: GET with request_id as query parameter
+        if (!statusResponse.ok && (statusResponse.status === 405 || statusResponse.status === 404)) {
+          statusUrl = `https://queue.fal.run/${model}/status?request_id=${requestId}`;
+          statusResponse = await fetch(statusUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Key ${FAL_API_KEY}`,
+            },
+          });
+        }
+
+        // Format 3: Request ID in URL path
+        if (!statusResponse.ok && (statusResponse.status === 405 || statusResponse.status === 404)) {
+          statusUrl = `https://queue.fal.run/${model}/requests/${requestId}/status`;
+          statusResponse = await fetch(statusUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Key ${FAL_API_KEY}`,
+            },
+          });
+        }
+
+        // Format 4: Try fal.run with /queue/status
+        if (!statusResponse.ok && (statusResponse.status === 405 || statusResponse.status === 404)) {
+          statusUrl = `https://fal.run/${model}/queue/status?request_id=${requestId}`;
+          statusResponse = await fetch(statusUrl, {
+            method: "GET",
+            headers: {
+              Authorization: `Key ${FAL_API_KEY}`,
+            },
+          });
+        }
+
+        if (!statusResponse.ok) {
+          const errorText = await statusResponse.text();
+          throw new Error(`fal.ai status check error: ${statusResponse.status} - ${errorText}`);
+        }
+
+        const statusData = await statusResponse.json();
+        const status = statusData.status?.toLowerCase();
+
+        if (status === "completed" || status === "COMPLETED") {
+          // Get the result - try multiple formats
+          // Format 1: POST with request_id in body
+          let resultUrl = `https://queue.fal.run/${model}/result`;
+          let resultResponse = await fetch(resultUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Key ${FAL_API_KEY}`,
+            },
+            body: JSON.stringify({
+              request_id: requestId,
+            }),
+          });
+
+          // Format 2: GET with request_id as query parameter
+          if (!resultResponse.ok && (resultResponse.status === 405 || resultResponse.status === 404)) {
+            resultUrl = `https://queue.fal.run/${model}/result?request_id=${requestId}`;
+            resultResponse = await fetch(resultUrl, {
+              method: "GET",
+              headers: {
+                Authorization: `Key ${FAL_API_KEY}`,
+              },
+            });
+          }
+
+          // Format 3: Request ID in URL path
+          if (!resultResponse.ok && (resultResponse.status === 405 || resultResponse.status === 404)) {
+            resultUrl = `https://queue.fal.run/${model}/requests/${requestId}/result`;
+            resultResponse = await fetch(resultUrl, {
+              method: "GET",
+              headers: {
+                Authorization: `Key ${FAL_API_KEY}`,
+              },
+            });
+          }
+
+          // Format 4: Try fal.run with /queue/result
+          if (!resultResponse.ok && (resultResponse.status === 405 || resultResponse.status === 404)) {
+            resultUrl = `https://fal.run/${model}/queue/result?request_id=${requestId}`;
+            resultResponse = await fetch(resultUrl, {
+              method: "GET",
+              headers: {
+                Authorization: `Key ${FAL_API_KEY}`,
+              },
+            });
+          }
+
+          if (!resultResponse.ok) {
+            const errorText = await resultResponse.text();
+            throw new Error(`fal.ai result fetch error: ${resultResponse.status} - ${errorText}`);
+          }
+
+          const resultData = await resultResponse.json();
+          const videoUrl = resultData.video?.url || resultData.data?.video?.url;
+
+          if (videoUrl) {
+            return {
+              requestId: requestId,
+              status: "completed",
+              videoUrl: videoUrl,
+              isCompleted: true,
+              seed: resultData.seed || resultData.data?.seed,
+              actualPrompt: resultData.actual_prompt || resultData.data?.actual_prompt,
+            };
+          } else {
+            throw new Error("No video URL in result");
+          }
+        } else if (status === "failed" || status === "FAILED" || status === "error") {
+          throw new Error(statusData.error || "Video generation failed");
+        }
+
+        attempts++;
+      }
+
+      // If we get here, it's still processing - return request ID for async polling
+      return {
+        requestId: requestId,
+        status: "processing",
+        videoUrl: null,
+        isCompleted: false,
+      };
     } catch (error: any) {
-      console.error("fal.ai text-to-video error:", error);
+      console.error("fal.ai WAN 2.5 text-to-video error:", error);
       throw new Error(`Failed to generate video: ${error.message}`);
     }
   },
@@ -539,13 +817,13 @@ export const editImage = action({
       try {
         // Check if it's a storage ID (short string without http/https/data, typically starts with 'k' for Convex)
         // Storage IDs are usually 20-30 characters and don't contain slashes or colons
-        const isStorageId = !url.startsWith("http://") && 
-                            !url.startsWith("https://") && 
-                            !url.startsWith("data:") &&
-                            url.length > 10 && 
-                            url.length < 50 &&
-                            !url.includes("/") &&
-                            !url.includes(":");
+        const isStorageId = !url.startsWith("http://") &&
+          !url.startsWith("https://") &&
+          !url.startsWith("data:") &&
+          url.length > 10 &&
+          url.length < 50 &&
+          !url.includes("/") &&
+          !url.includes(":");
 
         if (isStorageId) {
           // It's likely a Convex storage ID, convert it to a URL
@@ -562,9 +840,9 @@ export const editImage = action({
         }
 
         // Check if URL is already a publicly accessible URL (like from fal.ai or other CDN)
-        if (url.startsWith("https://storage.googleapis.com/") || 
-            url.startsWith("https://fal.ai/") ||
-            (url.startsWith("https://") && (url.includes("googleapis.com") || url.includes("fal.ai")))) {
+        if (url.startsWith("https://storage.googleapis.com/") ||
+          url.startsWith("https://fal.ai/") ||
+          (url.startsWith("https://") && (url.includes("googleapis.com") || url.includes("fal.ai")))) {
           return url; // Already a public URL
         }
 
@@ -586,7 +864,7 @@ export const editImage = action({
     // Upload all images to fal.ai storage
     const baseImageUrl = await uploadToFalStorage(args.imageUrl);
     const additionalUrls: string[] = [];
-    
+
     if (args.additionalImageUrls && args.additionalImageUrls.length > 0) {
       for (const url of args.additionalImageUrls) {
         const publicUrl = await uploadToFalStorage(url);
@@ -598,7 +876,7 @@ export const editImage = action({
     // According to API docs: prompt and image_urls (array) are required
     // nano-banana/edit supports multiple images for remixing
     const imageUrls = [baseImageUrl, ...additionalUrls];
-    
+
     const requestBody: any = {
       prompt: args.prompt,
       image_urls: imageUrls, // Array of publicly accessible images for remixing
@@ -689,7 +967,7 @@ export const editImage = action({
           isCompleted: true,
         };
       }
-      
+
       // No images found - check if we need to poll
       if (data.request_id || responseData.requestId) {
         console.log("No images found, will poll async with requestId:", data.request_id || responseData.requestId);
@@ -700,7 +978,7 @@ export const editImage = action({
           isCompleted: false,
         };
       }
-      
+
       // Log the full response for debugging
       console.error("Unexpected response format:", JSON.stringify(responseData, null, 2));
       throw new Error(`Unexpected response format from fal.ai: ${JSON.stringify(responseData)}`);
