@@ -182,6 +182,8 @@ export const createScreen = mutation({
     staticConfig: v.optional(
       v.object({
         imageUrl: v.string(),
+        imageUrls: v.optional(v.array(v.string())),
+        rotationInterval: v.optional(v.number()),
       })
     ),
     layoutConfig: v.object({
@@ -218,6 +220,8 @@ export const updateScreen = mutation({
     staticConfig: v.optional(
       v.object({
         imageUrl: v.string(),
+        imageUrls: v.optional(v.array(v.string())),
+        rotationInterval: v.optional(v.number()),
       })
     ),
     layoutConfig: v.optional(
@@ -362,6 +366,7 @@ export const deleteScreen = mutation({
 export const createStaticAsset = mutation({
   args: {
     name: v.string(),
+    storageId: v.optional(v.id("_storage")),
     fileUrl: v.string(),
     fileSize: v.number(),
     mimeType: v.string(),

@@ -403,8 +403,8 @@ function FeaturedLayout({
               <button
                 key={index}
                 className={`w-3 h-3 rounded-full transition-all ${index === currentIndex
-                    ? "bg-white"
-                    : "bg-gray-500"
+                  ? "bg-white"
+                  : "bg-gray-500"
                   }`}
                 onClick={() => setCurrentIndex(index)}
                 aria-label={`Go to product ${index + 1}`}
@@ -604,17 +604,27 @@ function ProductCard({
 }
 
 function StaticDisplay({ screen }: { screen: any }) {
-  const imageSource = screen.staticConfig?.imageUrl;
+  const imageUrls = screen.staticConfig?.imageUrls ?? [];
+  const singleImageUrl = screen.staticConfig?.imageUrl;
+  const rotationInterval = screen.staticConfig?.rotationInterval ?? 10;
 
-  // Check if it's a storage ID and resolve it
-  const looksLikeStorageId = imageSource && /^k[a-zA-Z0-9]+$/.test(imageSource);
-  const storageUrl = useQuery(
-    api.files.getStorageUrl,
-    looksLikeStorageId ? ({ storageId: imageSource as Id<"_storage"> } as any) : "skip"
-  );
-  const imageUrl = looksLikeStorageId ? storageUrl : imageSource;
+  // Determine which images to use
+  const images = imageUrls.length > 0 ? imageUrls : (singleImageUrl ? [singleImageUrl] : []);
 
-  if (!imageSource) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Rotate through images
+  useEffect(() => {
+    if (images.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    }, rotationInterval * 1000);
+
+    return () => clearInterval(interval);
+  }, [images.length, rotationInterval]);
+
+  if (images.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center text-white">
@@ -627,10 +637,35 @@ function StaticDisplay({ screen }: { screen: any }) {
     );
   }
 
+  return (
+    <div className="h-full w-full relative overflow-hidden">
+      {images.map((imageSource: string, index: number) => (
+        <StaticImage
+          key={`${imageSource}-${index}`}
+          imageSource={imageSource}
+          isActive={index === currentIndex}
+        />
+      ))}
+    </div>
+  );
+}
+
+function StaticImage({ imageSource, isActive }: { imageSource: string; isActive: boolean }) {
+  // Check if it's a storage ID and resolve it
+  const looksLikeStorageId = imageSource && /^k[a-zA-Z0-9]+$/.test(imageSource);
+  const storageUrl = useQuery(
+    api.files.getStorageUrl,
+    looksLikeStorageId ? ({ storageId: imageSource as Id<"_storage"> } as any) : "skip"
+  );
+  const imageUrl = looksLikeStorageId ? storageUrl : imageSource;
+
   // Show loading state while resolving storage URL
   if (looksLikeStorageId && !imageUrl) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div
+        className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${isActive ? "opacity-100" : "opacity-0"
+          }`}
+      >
         <div className="text-center text-white">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-gray-400">Loading image...</p>
@@ -640,12 +675,17 @@ function StaticDisplay({ screen }: { screen: any }) {
   }
 
   return (
-    <div className="h-full w-full flex items-center justify-center">
-      <img
-        src={imageUrl}
-        alt="Static display"
-        className="w-full h-full object-contain"
-      />
+    <div
+      className={`absolute inset-0 flex items-center justify-center transition-opacity duration-1000 ${isActive ? "opacity-100" : "opacity-0"
+        }`}
+    >
+      {imageUrl && (
+        <img
+          src={imageUrl}
+          alt="Static display"
+          className="w-full h-full object-contain"
+        />
+      )}
     </div>
   );
 }

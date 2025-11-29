@@ -128,6 +128,8 @@ function ScreenManagement({
     backgroundImage: "",
     // Static config
     imageUrl: "",
+    imageUrls: [] as string[],
+    rotationInterval: 10,
     // Layout config
     orientation: "landscape" as "landscape" | "portrait",
     refreshInterval: 300,
@@ -137,7 +139,10 @@ function ScreenManagement({
   const handleCreate = async () => {
     if (!formData.screenId || !formData.name || !formData.locationId) return;
     if (formData.mode === "dynamic" && !formData.templateId) return;
-    if (formData.mode === "static" && !formData.imageUrl) return;
+    if (formData.mode === "static" && formData.imageUrls.length === 0 && !formData.imageUrl) return;
+
+    // Use first image from imageUrls as primary, or fall back to imageUrl
+    const primaryImage = formData.imageUrls.length > 0 ? formData.imageUrls[0] : formData.imageUrl;
 
     await createScreen({
       screenId: formData.screenId,
@@ -155,7 +160,9 @@ function ScreenManagement({
       staticConfig:
         formData.mode === "static"
           ? {
-            imageUrl: formData.imageUrl,
+            imageUrl: primaryImage,
+            imageUrls: formData.imageUrls.length > 0 ? formData.imageUrls : undefined,
+            rotationInterval: formData.imageUrls.length > 1 ? formData.rotationInterval : undefined,
           }
           : undefined,
       layoutConfig: {
@@ -179,6 +186,8 @@ function ScreenManagement({
       templateId: screen.dynamicConfig?.templateId ?? ("" as Id<"templates"> | ""),
       backgroundImage: screen.dynamicConfig?.backgroundImage ?? "",
       imageUrl: screen.staticConfig?.imageUrl ?? "",
+      imageUrls: screen.staticConfig?.imageUrls ?? [],
+      rotationInterval: screen.staticConfig?.rotationInterval ?? 10,
       orientation: screen.layoutConfig.orientation,
       refreshInterval: screen.layoutConfig.refreshInterval,
       status: screen.status,
@@ -188,7 +197,10 @@ function ScreenManagement({
   const handleUpdate = async () => {
     if (!editingId) return;
     if (formData.mode === "dynamic" && !formData.templateId) return;
-    if (formData.mode === "static" && !formData.imageUrl) return;
+    if (formData.mode === "static" && formData.imageUrls.length === 0 && !formData.imageUrl) return;
+
+    // Use first image from imageUrls as primary, or fall back to imageUrl
+    const primaryImage = formData.imageUrls.length > 0 ? formData.imageUrls[0] : formData.imageUrl;
 
     await updateScreen({
       id: editingId,
@@ -207,7 +219,9 @@ function ScreenManagement({
       staticConfig:
         formData.mode === "static"
           ? {
-            imageUrl: formData.imageUrl,
+            imageUrl: primaryImage,
+            imageUrls: formData.imageUrls.length > 0 ? formData.imageUrls : undefined,
+            rotationInterval: formData.imageUrls.length > 1 ? formData.rotationInterval : undefined,
           }
           : undefined,
       layoutConfig: {
@@ -237,6 +251,8 @@ function ScreenManagement({
       templateId: "" as Id<"templates"> | "",
       backgroundImage: "",
       imageUrl: "",
+      imageUrls: [],
+      rotationInterval: 10,
       orientation: "landscape",
       refreshInterval: 300,
       status: "active",
@@ -595,16 +611,35 @@ function ScreenForm({
         </TabsContent>
         <TabsContent value="static" className="space-y-4">
           <div className="grid gap-2">
-            <Label>Static Image</Label>
-            <ImageUploader
-              value={formData.imageUrl}
-              onChange={(value) => setFormData({ ...formData, imageUrl: value })}
-              placeholder="Upload or paste URL"
+            <Label>Static Images</Label>
+            <MultiImageSelector
+              images={formData.imageUrls}
+              onChange={(urls) => setFormData({ ...formData, imageUrls: urls })}
             />
             <p className="text-xs text-muted-foreground">
-              Image to display on the static screen
+              Add multiple images to rotate on the display. Click and drag to reorder.
             </p>
           </div>
+          {formData.imageUrls.length > 1 && (
+            <div className="grid gap-2">
+              <Label htmlFor="rotationInterval">Rotation Interval (seconds)</Label>
+              <Input
+                id="rotationInterval"
+                type="number"
+                value={formData.rotationInterval}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    rotationInterval: parseInt(e.target.value) || 10,
+                  })
+                }
+                min={1}
+              />
+              <p className="text-xs text-muted-foreground">
+                Time between image rotations (default: 10 seconds)
+              </p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -688,6 +723,7 @@ function ImageUploader({
   placeholder?: string;
 }) {
   const generateUploadUrl = useAction(api.files.generateUploadUrl);
+  const createStaticAsset = useMutation(api.mutations.createStaticAsset);
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -746,6 +782,15 @@ function ImageUploader({
       }
 
       const { storageId } = await response.json();
+
+      // Track the upload in staticAssets
+      await createStaticAsset({
+        name: file.name,
+        storageId: storageId as Id<"_storage">,
+        fileUrl: storageId, // Will be resolved to URL when displayed
+        fileSize: file.size,
+        mimeType: file.type,
+      });
 
       // Set the storage ID as the value
       onChange(storageId);
@@ -845,6 +890,433 @@ function ImageUploader({
         </div>
       )}
     </div>
+  );
+}
+
+function MultiImageSelector({
+  images,
+  onChange,
+}: {
+  images: string[];
+  onChange: (images: string[]) => void;
+}) {
+  const generateUploadUrl = useAction(api.files.generateUploadUrl);
+  const createStaticAsset = useMutation(api.mutations.createStaticAsset);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    const maxSize = 10 * 1024 * 1024;
+
+    try {
+      setIsUploading(true);
+      const newImages: string[] = [];
+
+      for (const file of Array.from(files)) {
+        if (!allowedTypes.includes(file.type)) {
+          console.warn(`Skipping ${file.name}: invalid type`);
+          continue;
+        }
+        if (file.size > maxSize) {
+          console.warn(`Skipping ${file.name}: too large`);
+          continue;
+        }
+
+        const uploadUrl = await generateUploadUrl();
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+
+        if (response.ok) {
+          const { storageId } = await response.json();
+
+          // Track the upload in staticAssets
+          await createStaticAsset({
+            name: file.name,
+            storageId: storageId as Id<"_storage">,
+            fileUrl: storageId,
+            fileSize: file.size,
+            mimeType: file.type,
+          });
+
+          newImages.push(storageId);
+        }
+      }
+
+      onChange([...images, ...newImages]);
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to upload images. Please try again.");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeImage = (index: number) => {
+    onChange(images.filter((_, i) => i !== index));
+  };
+
+  const moveImage = (index: number, direction: "up" | "down") => {
+    const newImages = [...images];
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= images.length) return;
+    [newImages[index], newImages[newIndex]] = [newImages[newIndex], newImages[index]];
+    onChange(newImages);
+  };
+
+  const handleGallerySelect = (selectedImages: string[]) => {
+    onChange([...images, ...selectedImages]);
+    setIsGalleryOpen(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleFileChange}
+          className="hidden"
+          multiple
+          disabled={isUploading}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className="flex-1"
+        >
+          {isUploading ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <Upload className="h-4 w-4 mr-2" />
+          )}
+          Upload Images
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setIsGalleryOpen(true)}
+          className="flex-1"
+        >
+          <ImageIcon className="h-4 w-4 mr-2" />
+          Browse Gallery
+        </Button>
+      </div>
+
+      {/* Image list */}
+      {images.length > 0 && (
+        <div className="space-y-2">
+          {images.map((imageId, index) => (
+            <ImageListItem
+              key={`${imageId}-${index}`}
+              imageId={imageId}
+              index={index}
+              total={images.length}
+              onRemove={() => removeImage(index)}
+              onMoveUp={() => moveImage(index, "up")}
+              onMoveDown={() => moveImage(index, "down")}
+            />
+          ))}
+        </div>
+      )}
+
+      {images.length === 0 && (
+        <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
+          <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>No images added yet</p>
+          <p className="text-xs mt-1">Upload images or select from gallery</p>
+        </div>
+      )}
+
+      {/* Gallery picker dialog */}
+      <Dialog open={isGalleryOpen} onOpenChange={setIsGalleryOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select from Gallery</DialogTitle>
+            <DialogDescription>
+              Choose images from your uploaded files
+            </DialogDescription>
+          </DialogHeader>
+          <GalleryPicker
+            onSelect={handleGallerySelect}
+            excludeIds={images}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function ImageListItem({
+  imageId,
+  index,
+  total,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+}: {
+  imageId: string;
+  index: number;
+  total: number;
+  onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const looksLikeStorageId = Boolean(imageId && /^k[a-zA-Z0-9]+$/.test(imageId));
+  const storageUrl = useQuery(
+    api.files.getStorageUrl,
+    looksLikeStorageId ? { storageId: imageId as Id<"_storage"> } : "skip"
+  );
+  const displayUrl = looksLikeStorageId ? storageUrl : imageId;
+
+  return (
+    <div className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
+      <div className="w-16 h-16 rounded overflow-hidden bg-muted shrink-0">
+        {displayUrl ? (
+          <img
+            src={displayUrl}
+            alt={`Image ${index + 1}`}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">
+          Image {index + 1}
+          {index === 0 && <span className="text-muted-foreground ml-1">(Primary)</span>}
+        </p>
+        <p className="text-xs text-muted-foreground truncate">
+          {looksLikeStorageId ? "Uploaded file" : imageId}
+        </p>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onMoveUp}
+          disabled={index === 0}
+        >
+          ↑
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onMoveDown}
+          disabled={index === total - 1}
+        >
+          ↓
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function GalleryPicker({
+  onSelect,
+  excludeIds,
+}: {
+  onSelect: (images: string[]) => void;
+  excludeIds: string[];
+}) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<"all" | "uploads" | "generated">("all");
+
+  // Get generated files (images only)
+  const generatedFiles = useQuery(api.queries.getGeneratedFiles, {
+    fileType: "image",
+    limit: 100,
+  }) ?? [];
+
+  // Get static assets (uploaded images)
+  const staticAssets = useQuery(api.queries.getStaticAssets) ?? [];
+
+  // Process static assets - use storageId if available, otherwise fileUrl
+  const uploadedImages = staticAssets.map((a) => ({
+    id: a.storageId ?? a.fileUrl,
+    url: a.storageId ?? a.fileUrl,
+    name: a.name,
+    type: "upload" as const,
+    createdAt: a.createdAt,
+  }));
+
+  // Process generated files
+  const generatedImages = generatedFiles.map((f) => ({
+    id: f.storageId,
+    url: f.fileUrl,
+    name: `Generated ${new Date(f.createdAt).toLocaleDateString()}`,
+    type: "generated" as const,
+    createdAt: f.createdAt,
+  }));
+
+  // Filter images based on active tab
+  const filteredImages = (() => {
+    let images = [];
+    if (activeTab === "all") {
+      images = [...uploadedImages, ...generatedImages];
+    } else if (activeTab === "uploads") {
+      images = uploadedImages;
+    } else {
+      images = generatedImages;
+    }
+    // Sort by creation date (newest first) and filter out already selected
+    return images
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .filter((img) => !excludeIds.includes(img.id));
+  })();
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirm = () => {
+    onSelect(selectedIds);
+  };
+
+  const totalUploads = uploadedImages.filter((img) => !excludeIds.includes(img.id)).length;
+  const totalGenerated = generatedImages.filter((img) => !excludeIds.includes(img.id)).length;
+
+  if (uploadedImages.length === 0 && generatedImages.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <ImageIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+        <p>No images available in gallery</p>
+        <p className="text-sm mt-1">Upload images or use the Generator to create some</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Tab filters */}
+      <div className="flex gap-2 border-b pb-2">
+        <Button
+          variant={activeTab === "all" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("all")}
+        >
+          All ({totalUploads + totalGenerated})
+        </Button>
+        <Button
+          variant={activeTab === "uploads" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("uploads")}
+        >
+          <Upload className="h-4 w-4 mr-1" />
+          Uploads ({totalUploads})
+        </Button>
+        <Button
+          variant={activeTab === "generated" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setActiveTab("generated")}
+        >
+          <ImageIcon className="h-4 w-4 mr-1" />
+          Generated ({totalGenerated})
+        </Button>
+      </div>
+
+      {filteredImages.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p>No images in this category</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-3 max-h-[50vh] overflow-y-auto p-1">
+          {filteredImages.map((image) => (
+            <div
+              key={image.id}
+              className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${selectedIds.includes(image.id)
+                  ? "border-primary ring-2 ring-primary/20"
+                  : "border-transparent hover:border-muted-foreground/30"
+                }`}
+              onClick={() => toggleSelection(image.id)}
+            >
+              <div className="aspect-square bg-muted">
+                <GalleryImage imageId={image.id} url={image.url} />
+              </div>
+              {selectedIds.includes(image.id) && (
+                <div className="absolute top-2 right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">
+                  {selectedIds.indexOf(image.id) + 1}
+                </div>
+              )}
+              <div className="absolute top-2 left-2">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded ${image.type === "upload"
+                    ? "bg-blue-500/80 text-white"
+                    : "bg-purple-500/80 text-white"
+                  }`}>
+                  {image.type === "upload" ? "Upload" : "AI"}
+                </span>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-1 truncate">
+                {image.name}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between border-t pt-4">
+        <p className="text-sm text-muted-foreground">
+          {selectedIds.length} image{selectedIds.length !== 1 ? "s" : ""} selected
+        </p>
+        <Button onClick={handleConfirm} disabled={selectedIds.length === 0}>
+          Add Selected
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function GalleryImage({ imageId, url }: { imageId: string; url: string }) {
+  const looksLikeStorageId = Boolean(imageId && /^k[a-zA-Z0-9]+$/.test(imageId));
+  const storageUrl = useQuery(
+    api.files.getStorageUrl,
+    looksLikeStorageId ? { storageId: imageId as Id<"_storage"> } : "skip"
+  );
+  const displayUrl = looksLikeStorageId ? storageUrl : url;
+
+  if (!displayUrl) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={displayUrl}
+      alt="Gallery image"
+      className="w-full h-full object-cover"
+    />
   );
 }
 

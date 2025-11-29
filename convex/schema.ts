@@ -70,6 +70,9 @@ export default defineSchema({
     staticConfig: v.optional(
       v.object({
         imageUrl: v.string(),
+        // Support for multiple images with rotation
+        imageUrls: v.optional(v.array(v.string())),
+        rotationInterval: v.optional(v.number()), // seconds between rotations
       })
     ),
     layoutConfig: v.object({
@@ -90,11 +93,14 @@ export default defineSchema({
 
   staticAssets: defineTable({
     name: v.string(),
-    fileUrl: v.string(),
+    storageId: v.optional(v.id("_storage")), // For uploaded files
+    fileUrl: v.string(), // Can be storage URL or external URL
     fileSize: v.number(),
     mimeType: v.string(),
     createdAt: v.number(),
-  }).index("by_createdAt", ["createdAt"]),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_storageId", ["storageId"]),
 
   // Generator Module Tables
   imageGenerations: defineTable({
