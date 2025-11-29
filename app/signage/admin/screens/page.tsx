@@ -11,11 +11,14 @@ import {
   Monitor,
   Image as ImageIcon,
   Grid3x3,
+  Upload,
+  X,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -579,14 +582,11 @@ function ScreenForm({
             </p>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="backgroundImage">Background Image URL (Optional)</Label>
-            <Input
-              id="backgroundImage"
+            <Label>Background Image (Optional)</Label>
+            <ImageUploader
               value={formData.backgroundImage}
-              onChange={(e) =>
-                setFormData({ ...formData, backgroundImage: e.target.value })
-              }
-              placeholder="https://example.com/image.jpg"
+              onChange={(value) => setFormData({ ...formData, backgroundImage: value })}
+              placeholder="Upload or paste URL"
             />
             <p className="text-xs text-muted-foreground">
               Overrides location default background
@@ -595,17 +595,14 @@ function ScreenForm({
         </TabsContent>
         <TabsContent value="static" className="space-y-4">
           <div className="grid gap-2">
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input
-              id="imageUrl"
+            <Label>Static Image</Label>
+            <ImageUploader
               value={formData.imageUrl}
-              onChange={(e) =>
-                setFormData({ ...formData, imageUrl: e.target.value })
-              }
-              placeholder="https://example.com/static-image.jpg"
+              onChange={(value) => setFormData({ ...formData, imageUrl: value })}
+              placeholder="Upload or paste URL"
             />
             <p className="text-xs text-muted-foreground">
-              Full URL to the static image to display
+              Image to display on the static screen
             </p>
           </div>
         </TabsContent>
@@ -677,6 +674,176 @@ function ScreenForm({
           {isEdit ? "Update" : "Create"} Screen
         </Button>
       </div>
+    </div>
+  );
+}
+
+function ImageUploader({
+  value,
+  onChange,
+  placeholder = "Upload or paste URL",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const generateUploadUrl = useAction(api.files.generateUploadUrl);
+  const [isUploading, setIsUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if value looks like a Convex storage ID
+  const looksLikeStorageId = Boolean(value && /^k[a-zA-Z0-9]+$/.test(value));
+  const storageUrl = useQuery(
+    api.files.getStorageUrl,
+    looksLikeStorageId ? { storageId: value as Id<"_storage"> } : "skip"
+  );
+
+  // Determine the display URL
+  const displayUrl = looksLikeStorageId ? storageUrl : value;
+
+  useEffect(() => {
+    if (displayUrl) {
+      setPreviewUrl(displayUrl);
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [displayUrl]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Please upload an image file (JPEG, PNG, WebP, or GIF)");
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert("File size must be less than 10MB");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+
+      // Get upload URL from Convex
+      const uploadUrl = await generateUploadUrl();
+
+      // Upload the file
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const { storageId } = await response.json();
+
+      // Set the storage ID as the value
+      onChange(storageId);
+
+      // Create local preview
+      const localUrl = URL.createObjectURL(file);
+      setPreviewUrl(localUrl);
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to upload image. Please try again.");
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    onChange(newValue);
+    if (newValue && !newValue.startsWith("k")) {
+      setPreviewUrl(newValue);
+    }
+  };
+
+  const handleClear = () => {
+    onChange("");
+    setPreviewUrl(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* URL Input with Upload Button */}
+      <div className="flex gap-2">
+        <div className="flex-1 relative">
+          <Input
+            value={looksLikeStorageId ? "" : value}
+            onChange={handleUrlChange}
+            placeholder={looksLikeStorageId ? "Uploaded file" : placeholder}
+            disabled={isUploading || looksLikeStorageId}
+            className={looksLikeStorageId ? "text-muted-foreground" : ""}
+          />
+          {looksLikeStorageId && (
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              ✓ Uploaded file
+            </span>
+          )}
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleFileChange}
+          className="hidden"
+          disabled={isUploading}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className="shrink-0"
+        >
+          {isUploading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+        </Button>
+        {value && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClear}
+            disabled={isUploading}
+            className="shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      {/* Preview */}
+      {previewUrl && (
+        <div className="relative rounded-lg border overflow-hidden bg-muted/50">
+          <img
+            src={previewUrl}
+            alt="Preview"
+            className="w-full h-40 object-contain"
+            onError={() => setPreviewUrl(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }
