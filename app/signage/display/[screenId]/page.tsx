@@ -321,7 +321,7 @@ function ListLayout({
             }}
           >
             {template.showImages && product.image && (
-              <div className="h-[80%] aspect-square rounded-lg overflow-hidden flex-shrink-0 relative">
+              <div className="h-[80%] aspect-square rounded-lg overflow-hidden shrink-0 relative">
                 <ProductImage imageId={product.image} alt={product.name} />
               </div>
             )}
@@ -381,7 +381,7 @@ function FeaturedLayout({
             </div>
           </div>
         )}
-        <div className="flex-shrink-0 text-center">
+        <div className="shrink-0 text-center">
           <h2
             className="text-[clamp(2rem,6vh,4rem)] font-bold mb-2"
             style={{ color: branding.secondaryColor }}
@@ -461,7 +461,7 @@ function ColumnsLayout({
       {/* Header with Logo */}
       {showHeader && logoUrl && (
         <div
-          className="flex-shrink-0 flex items-center justify-center"
+          className="shrink-0 flex items-center justify-center"
           style={{
             backgroundColor: branding.primaryColor,
             height: "15vh",
@@ -581,7 +581,7 @@ function ProductCard({
           <ProductImage imageId={product.image} alt={product.name} />
         </div>
       )}
-      <div className="flex-shrink-0 p-2">
+      <div className="hrink-0 p-2">
         <h3
           className="text-[clamp(0.875rem,2vh,1.5rem)] font-bold mb-1 truncate"
           style={{ color: branding.secondaryColor }}
