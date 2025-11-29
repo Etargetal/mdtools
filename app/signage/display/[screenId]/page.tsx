@@ -398,7 +398,7 @@ function FeaturedLayout({
           )}
         </div>
         {products.length > 1 && (
-          <div className="flex-shrink-0 flex justify-center gap-2 mt-4">
+          <div className="shrink-0 flex justify-center gap-2 mt-4">
             {products.map((_, index) => (
               <button
                 key={index}
